@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Appearance, Persona, RelationshipTone } from './persona';
 import type { CreditPackCode, MissionCode } from './credits';
 
@@ -75,6 +76,16 @@ export interface MeResponse {
 }
 
 // ---------------------------------------------------------------- soulmate
+
+/**
+ * 아바타 재생성 요청.
+ * changeRequest를 비우면 "같은 인물, 다른 포즈와 옷" 으로 처리한다.
+ */
+export const RegenerateAvatarSchema = z.object({
+  changeRequest: z.string().trim().max(200).optional(),
+});
+
+export type RegenerateAvatarRequest = z.infer<typeof RegenerateAvatarSchema>;
 
 export interface SoulmateResponse {
   id: string;

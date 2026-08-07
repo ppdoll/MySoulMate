@@ -126,8 +126,11 @@ if [ -n "$UNEXPECTED" ]; then
   exit 1
 fi
 
-echo "==> 검증"
+echo "==> 검증 (크레딧)"
 psql_run -f "$ROOT/supabase/test/03_assert.sql"
+
+echo "==> 검증 (소울메이트 생성 트랜잭션)"
+psql_run -f "$ROOT/supabase/test/04_soulmate.sql"
 
 echo
 echo "완료."

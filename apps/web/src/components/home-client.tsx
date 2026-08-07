@@ -1,20 +1,29 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { MeResponse } from '@mysoulmate/shared';
+import type { MeResponse, SoulmateResponse } from '@mysoulmate/shared';
 import { ApiError, apiFetch } from '@/lib/api';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { SoulmateCard } from './soulmate-card';
 
 export function HomeClient() {
   const router = useRouter();
   const [me, setMe] = useState<MeResponse | null>(null);
+  const [soulmate, setSoulmate] = useState<SoulmateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setMe(await apiFetch<MeResponse>('/me'));
+      const next = await apiFetch<MeResponse>('/me');
+      setMe(next);
+
+      // 소울메이트가 있을 때만 부른다. 없을 때 부르면 404가 나서 오류 화면이 뜬다.
+      if (next.hasSoulmate) {
+        setSoulmate(await apiFetch<SoulmateResponse>('/soulmate'));
+      }
     } catch (err) {
       if (err instanceof ApiError && err.code === 'unauthorized') {
         router.replace('/');
@@ -89,27 +98,26 @@ export function HomeClient() {
         </p>
       </section>
 
-      <section className="mt-6">
-        {me.hasSoulmate ? (
-          <p className="text-[15px] text-ink-soft dark:text-cream/60">
-            소울메이트가 기다리고 있어요. (대화 화면은 다음 단계에서 붙습니다)
-          </p>
+      <div className="mt-6">
+        {soulmate ? (
+          <SoulmateCard soulmate={soulmate} wallet={me.wallet} onUpdated={setSoulmate} />
+        ) : me.hasSoulmate ? (
+          <p className="text-[15px] text-ink-soft dark:text-cream/60">소울메이트를 불러오는 중…</p>
         ) : (
           <div className="rounded-2xl border border-dashed border-black/15 p-6 text-center dark:border-white/15">
             <p className="text-[15px]">아직 소울메이트가 없어요.</p>
             <p className="mt-1 text-sm text-ink-soft dark:text-cream/60">
               열 개의 질문에 답하면 만들어져요.
             </p>
-            <button
-              type="button"
-              disabled
-              className="mt-5 rounded-full bg-blush px-6 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+            <Link
+              href="/onboarding"
+              className="mt-5 inline-block rounded-full bg-blush px-6 py-2.5 text-sm font-medium text-white"
             >
-              시작하기 (준비 중)
-            </button>
+              시작하기
+            </Link>
           </div>
         )}
-      </section>
+      </div>
 
       <footer className="mt-10 text-xs text-ink-soft/60 dark:text-cream/30">
         초대 코드 <span className="font-mono">{me.profile.referralCode}</span>

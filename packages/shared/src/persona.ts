@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ARCHETYPE_VALUES } from './archetypes';
 
 /**
  * 소울메이트의 페르소나 정의.
@@ -94,8 +95,16 @@ export const PersonaSchema = z.object({
 
 export type Persona = z.infer<typeof PersonaSchema>;
 
-/** DB soulmates.appearance 컬럼. 온보딩에서 고른 외형 입력을 원본 그대로 보관한다. */
+/**
+ * DB soulmates.appearance 컬럼. 온보딩에서 고른 외형 입력을 원본 그대로 보관한다.
+ *
+ * archetype을 함께 남기는 이유: 아바타를 재생성할 때 원래 어떤 큰 줄기에서 출발했는지
+ * 알아야 같은 방향을 유지할 수 있다.
+ *
+ * archetypes.ts는 persona.ts에서 타입만 가져가므로(런타임 참조 없음) 순환 참조가 아니다.
+ */
 export const AppearanceSchema = z.object({
+  archetype: z.enum(ARCHETYPE_VALUES),
   presentation: z.enum(PRESENTATIONS),
   vibe: z.enum(APPEARANCE_VIBES),
   note: z.string().max(200).optional(),

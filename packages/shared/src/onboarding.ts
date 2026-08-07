@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import {
   APPEARANCE_VIBES,
-  APPEARANCE_VIBE_META,
   PRESENTATIONS,
   PRESENTATION_META,
   RELATIONSHIP_TONES,
@@ -9,6 +8,7 @@ import {
   SPEECH_STYLES,
   SPEECH_STYLE_META,
 } from './persona';
+import { ARCHETYPES, ARCHETYPE_VALUES, getArchetype, type ArchetypeValue } from './archetypes';
 
 /**
  * 온보딩 질문 정의.
@@ -16,6 +16,9 @@ import {
  * web은 이걸 읽어서 화면을 그리고, api는 같은 정의로 답변을 검증하고 LLM 프롬프트를 만든다.
  * 질문을 추가할 때는 아래 OnboardingAnswersSchema도 같이 고쳐야 하며,
  * 파일 맨 아래 컴파일 타임 검사가 둘이 어긋나는 걸 잡아준다.
+ *
+ * 첫 질문(archetype)이 성격 3축과 외형 분위기의 기본값을 채운다.
+ * 이후 질문은 그 값에서 출발해 다듬는 용도다 — 빈 슬라이더부터 시작하면 고르기가 어렵다.
  */
 
 export interface OnboardingOption {
@@ -48,7 +51,9 @@ export type OnboardingQuestion =
       readonly type: 'scale';
       readonly minLabel: string;
       readonly maxLabel: string;
-    });
+    })
+  /** 큰 줄기를 고르는 카드형 질문. 화면에서 다른 단일 선택과 다르게 그려진다. */
+  | (QuestionBase & { readonly type: 'archetype' });
 
 /** 관심사 선택지. 페르소나의 대화 소재가 된다. */
 export const INTEREST_OPTIONS = [
@@ -85,13 +90,13 @@ const presentationOptions = PRESENTATIONS.map((value) => ({
   label: PRESENTATION_META[value].label,
 }));
 
-const vibeOptions = APPEARANCE_VIBES.map((value) => ({
-  value,
-  label: APPEARANCE_VIBE_META[value].label,
-  description: APPEARANCE_VIBE_META[value].description,
-}));
-
 export const ONBOARDING_QUESTIONS = [
+  {
+    key: 'archetype',
+    type: 'archetype',
+    title: '어떤 사람이었으면 좋겠어요?',
+    help: '가장 가까운 쪽을 고르세요. 다음 단계에서 세부를 다듬을 수 있어요.',
+  },
   {
     key: 'callName',
     type: 'text',
@@ -149,12 +154,6 @@ export const ONBOARDING_QUESTIONS = [
     options: presentationOptions,
   },
   {
-    key: 'appearanceVibe',
-    type: 'single',
-    title: '전체적인 분위기는요?',
-    options: vibeOptions,
-  },
-  {
     key: 'appearanceNote',
     type: 'text',
     title: '외모에 대해 더 알려주고 싶은 게 있나요?',
@@ -167,10 +166,20 @@ export const ONBOARDING_QUESTIONS = [
 
 export type OnboardingQuestionKey = (typeof ONBOARDING_QUESTIONS)[number]['key'];
 
+/**
+ * 화면에서 순회할 때 쓰는 목록.
+ *
+ * ONBOARDING_QUESTIONS는 `as const`라 각 항목이 리터럴 타입으로 남는다.
+ * 그대로 순회하면 `help`처럼 일부 항목에만 있는 필드에 접근할 수 없다.
+ * 키 추출에는 위쪽 리터럴 타입이 필요하므로 둘을 나눠서 내보낸다.
+ */
+export const ONBOARDING_QUESTION_LIST: readonly OnboardingQuestion[] = ONBOARDING_QUESTIONS;
+
 /** 1~5 척도. 3이 중간. */
 const scale = z.number().int().min(1).max(5);
 
 export const OnboardingAnswersSchema = z.object({
+  archetype: z.enum(ARCHETYPE_VALUES),
   callName: z.string().trim().min(1).max(20),
   tone: z.enum(RELATIONSHIP_TONES),
   speechStyle: z.enum(SPEECH_STYLES),
@@ -182,11 +191,28 @@ export const OnboardingAnswersSchema = z.object({
     .min(1)
     .max(3),
   presentation: z.enum(PRESENTATIONS),
-  appearanceVibe: z.enum(APPEARANCE_VIBES),
   appearanceNote: z.string().trim().max(200).optional(),
 });
 
 export type OnboardingAnswers = z.infer<typeof OnboardingAnswersSchema>;
+
+/** 타입을 고른 직후 나머지 답변에 채워 넣을 기본값. */
+export function defaultsForArchetype(value: ArchetypeValue) {
+  const { defaults } = getArchetype(value);
+  return {
+    energy: defaults.energy,
+    thinking: defaults.thinking,
+    humor: defaults.humor,
+  };
+}
+
+/** 외형 분위기는 질문하지 않고 타입에서 가져온다. */
+export function vibeForArchetype(value: ArchetypeValue) {
+  return getArchetype(value).defaults.vibe;
+}
+
+/** 화면 진행률 표시용. */
+export const ONBOARDING_STEP_COUNT = ONBOARDING_QUESTIONS.length;
 
 /**
  * 질문 정의와 답변 스키마가 어긋나면 여기서 컴파일 에러가 난다.
@@ -203,3 +229,4 @@ const _questionsMatchAnswers: AssertSameKeys<
   keyof OnboardingAnswers & string
 > = true;
 void _questionsMatchAnswers;
+void APPEARANCE_VIBES;

@@ -39,6 +39,19 @@ const EnvSchema = z.object({
    */
   SUPABASE_JWT_SECRET: optionalSecret,
 
+  /** Google AI Studio에서 발급. 페르소나(텍스트)와 아바타(이미지) 생성에 쓴다. */
+  GEMINI_API_KEY: z.string().min(1),
+
+  /**
+   * 모델 ID를 환경변수로 빼두는 이유: 모델이 자주 바뀌고 무료 티어 여부도 바뀐다.
+   * 코드 배포 없이 갈아끼울 수 있어야 한다.
+   *
+   * 텍스트는 무료 티어가 있고(분당 10회 상한은 서비스 전체 공유),
+   * 이미지는 2026년 8월 기준 무료 티어가 없어 장당 과금된다(2.5-flash-image ≈ $0.039).
+   */
+  GEMINI_TEXT_MODEL: z.string().default('gemini-3.6-flash'),
+  GEMINI_IMAGE_MODEL: z.string().default('gemini-2.5-flash-image'),
+
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
   VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });
