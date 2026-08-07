@@ -16,8 +16,11 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.string().min(1),
 
   SUPABASE_URL: z.url(),
-  /** service_role 키. 절대 프론트로 나가면 안 된다. RLS를 우회하는 키다. */
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  /**
+   * 시크릿 키(`sb_secret_...`). RLS를 우회하므로 절대 프론트로 나가면 안 된다.
+   * 구형 프로젝트의 service_role JWT 키를 넣어도 동작하지만, 그쪽은 2026년 말 폐기 예정이다.
+   */
+  SUPABASE_SECRET_KEY: z.string().min(1),
   /**
    * 레거시 HS256 대칭 키를 쓰는 Supabase 프로젝트용 폴백.
    * 비대칭(ES256) 서명 키를 쓰는 프로젝트라면 비워두면 된다 — JWKS로 검증한다.

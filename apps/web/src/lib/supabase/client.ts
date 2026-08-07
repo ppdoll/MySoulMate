@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../env';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '../env';
 
 let cached: SupabaseClient | undefined;
 
@@ -13,6 +13,6 @@ let cached: SupabaseClient | undefined;
  * 토큰 갱신이 여러 번 일어난다.
  */
 export function getSupabaseBrowserClient(): SupabaseClient {
-  cached ??= createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  cached ??= createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   return cached;
 }

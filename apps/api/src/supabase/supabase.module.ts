@@ -7,7 +7,7 @@ import {
 import { AppConfig } from '../config/app-config';
 
 /**
- * service_role 키로 만든 Supabase 클라이언트.
+ * 시크릿 키로 만든 Supabase 클라이언트.
  *
  * 이 키는 RLS를 전부 우회하므로 절대 프론트로 나가면 안 되고,
  * 모든 비즈니스 데이터 접근은 이 클라이언트를 통해서만 이뤄진다.
@@ -18,7 +18,7 @@ export class SupabaseService {
   readonly client: SupabaseClient;
 
   constructor(config: AppConfig) {
-    this.client = createClient(config.env.SUPABASE_URL, config.env.SUPABASE_SERVICE_ROLE_KEY, {
+    this.client = createClient(config.env.SUPABASE_URL, config.env.SUPABASE_SECRET_KEY, {
       auth: {
         // 서버에서는 세션을 들고 있을 이유가 없다. 서버리스라 어차피 매번 새 인스턴스다.
         persistSession: false,

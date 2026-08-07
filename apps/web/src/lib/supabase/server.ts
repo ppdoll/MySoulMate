@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../env';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '../env';
 
 /**
  * 서버 컴포넌트/라우트 핸들러용 Supabase 클라이언트.
@@ -12,7 +12,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../env';
 export async function createSupabaseServerClient(): Promise<SupabaseClient> {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

@@ -1,4 +1,4 @@
-# MySoulMate
+﻿# MySoulMate
 
 구글로 로그인한 사용자마다 고유한 성격과 외형을 가진 AI 소울메이트를 만들고,
 무료 대화 쿼터를 넘으면 크레딧으로 대화를 이어가는 웹 서비스.
@@ -34,77 +34,33 @@ api는 Supabase JWKS로 서명만 로컬 검증한다(Auth 서버 왕복 없음)
 
 ---
 
-## 1. Supabase 프로젝트 만들기
+## 1. 초기 설정 — [docs/SETUP.md](docs/SETUP.md)
 
-무료 플랜은 프로젝트 **2개**까지다. dev / prod 하나씩 만든다(그 이상은 만들지 않는다).
+Supabase 프로젝트 생성 → 마이그레이션 적용 → Google 로그인 연결까지
+클릭 단위로 링크를 달아 정리해 두었다. 처음이라면 그쪽을 그대로 따라간다.
 
-각 프로젝트에서 **SQL Editor**를 열고 아래 순서로 붙여넣어 실행한다:
+요약하면:
 
-1. `supabase/migrations/20260806000100_init_schema.sql`
-2. `supabase/migrations/20260806000200_credit_functions.sql`
+1. [Supabase 프로젝트](https://supabase.com/dashboard/projects) 2개 생성 (dev / prod, 무료 플랜 상한)
+2. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new)에서 `supabase/migrations/*.sql` 을 **번호 순서대로** 실행
+3. [Google Auth Platform](https://console.cloud.google.com/auth/clients/create)에서 OAuth 클라이언트를 만들고
+   [Supabase Google 프로바이더](https://supabase.com/dashboard/project/_/auth/providers)에 연결
+4. `.env.example` 을 복사해 값 채우기
 
-Supabase CLI를 쓴다면 이렇게 해도 된다(원격 push는 Docker가 필요 없다):
-
-```bash
-supabase link --project-ref <your-project-ref>
-```
-
-```bash
-supabase db push
-```
-
-적용이 끝나면 확인:
-
-```sql
-select public.next_quota_reset();
-select * from public.audit_wallet_integrity();
-```
-
-앞은 다음 KST 자정을, 뒤는 **빈 결과**를 내야 한다.
-
----
-
-## 2. Google 로그인 연결
-
-1. Google Cloud Console → **API 및 서비스 › OAuth 동의 화면** 구성
-2. **사용자 인증 정보 › OAuth 클라이언트 ID**(웹 애플리케이션) 생성
-3. 승인된 리디렉션 URI에 Supabase 콜백을 등록:
-   `https://<project-ref>.supabase.co/auth/v1/callback`
-4. 발급된 Client ID / Secret을 Supabase → **Authentication › Providers › Google**에 입력
-5. Supabase → **Authentication › URL Configuration › Redirect URLs**에 추가:
-   - `http://localhost:3000/auth/callback`
-   - `https://<배포 도메인>/auth/callback`
-
-> 동의 화면을 테스트에서 **게시(production)** 상태로 올리려면 개인정보처리방침·이용약관 URL이
-> 실제로 필요하다. 그 전까지는 테스트 사용자로 등록한 계정만 로그인할 수 있다.
-
----
-
-## 3. 환경변수
-
-```bash
-cp apps/api/.env.example apps/api/.env
-```
-
-```bash
-cp apps/web/.env.example apps/web/.env.local
-```
-
-값은 Supabase → **Project Settings › API** 에서 가져온다.
+키는 [Settings › API Keys](https://supabase.com/dashboard/project/_/settings/api-keys)에서 가져온다.
 
 | 어디 | 키 | 비고 |
 | --- | --- | --- |
-| api | `SUPABASE_SERVICE_ROLE_KEY` | RLS를 우회하는 키. 프론트/저장소에 절대 노출 금지 |
+| api | `SUPABASE_SECRET_KEY` | `sb_secret_...`. RLS를 우회한다. 프론트/저장소에 절대 노출 금지 |
 | api | `WEB_ORIGIN` | 쉼표로 여러 개. 프리뷰 배포 도메인도 넣어야 CORS가 통과한다 |
-| web | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 공개되어도 되는 키 |
+| web | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...`. 공개되어도 되는 키 |
 | web | `NEXT_PUBLIC_API_URL` | 로컬 `http://localhost:3001`, 배포는 api 쪽 도메인 |
 
-`SUPABASE_JWT_SECRET`은 비워둔다. JWT signing keys(비대칭)를 쓰는 프로젝트면 JWKS로 검증하고,
-레거시 HS256 프로젝트일 때만 채우면 된다.
+구형 프로젝트의 `anon` / `service_role` JWT 키를 넣어도 동작하지만
+[2026년 말 폐기 예정](https://supabase.com/docs/guides/api/api-keys)이라 새 키를 쓴다.
 
 ---
-
-## 4. 로컬 실행
+## 2. 로컬 실행
 
 ```bash
 pnpm install
@@ -131,7 +87,7 @@ pnpm --filter @mysoulmate/api exec vercel dev
 
 ---
 
-## 5. Vercel 배포
+## 3. Vercel 배포
 
 같은 저장소로 **프로젝트 2개**를 만들고 Root Directory만 다르게 지정한다.
 
@@ -155,11 +111,11 @@ NestJS는 zero-config로 올라간다. `apps/api/src/main.ts`가 엔트리포인
 ### GitHub Actions 시크릿
 
 `.github/workflows/keepalive.yml`이 Supabase 일시정지를 막는다.
-저장소 Settings › Secrets에 `SUPABASE_URL`, `SUPABASE_ANON_KEY`를 등록한다.
+저장소 Settings › Secrets에 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`를 등록한다.
 
 ---
 
-## 6. 동작 확인
+## 4. 동작 확인
 
 ```bash
 curl http://localhost:3001/health

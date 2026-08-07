@@ -18,10 +18,13 @@ export const SUPABASE_URL = required(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
 );
 
-/** anon(publishable) 키. 공개되어도 되는 키다 — RLS로 막혀 있다. */
-export const SUPABASE_ANON_KEY = required(
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+/**
+ * publishable 키(`sb_publishable_...`). 공개되어도 되는 키다 — RLS로 막혀 있다.
+ * 구형 프로젝트의 anon JWT 키를 넣어도 동작한다(2026년 말 폐기 예정).
+ */
+export const SUPABASE_PUBLISHABLE_KEY = required(
+  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 );
 
 /** NestJS API의 베이스 URL. 로컬은 http://localhost:3001 */

@@ -20,7 +20,7 @@ jobs:
       - name: Ping Supabase REST
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           if [ -z "$SUPABASE_URL" ]; then
             echo "SUPABASE_URL 시크릿이 없습니다. 저장소 Settings > Secrets에 등록하세요." >&2
@@ -28,7 +28,7 @@ jobs:
           fi
 
           status=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
             "${SUPABASE_URL%/}/rest/v1/")
 
           echo "REST 응답 코드: $status"
