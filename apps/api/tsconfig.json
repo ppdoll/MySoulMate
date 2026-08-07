@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "declaration": false,
+
+    /* incremental은 켜지 않는다.
+       nest-cli의 deleteOutDir가 dist를 지운 뒤 tsc가 .tsbuildinfo를 보고
+       "변경 없음"으로 판단해 emit을 건너뛰면 절반만 빌드된 dist가 남는다. */
+
+    /* NestJS의 DI는 emitDecoratorMetadata로 심어지는 타입 정보에 의존한다. */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* 데코레이터가 붙은 프로퍼티는 생성자에서 초기화되지 않아 이 검사와 충돌한다. */
+    "strictPropertyInitialization": false,
+    "isolatedModules": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

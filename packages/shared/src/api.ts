@@ -1,0 +1,134 @@
+import type { Appearance, Persona, RelationshipTone } from './persona';
+import type { CreditPackCode, MissionCode } from './credits';
+
+/**
+ * web <-> api 사이의 HTTP 계약.
+ *
+ * 요청 본문은 zod 스키마로(api에서 런타임 검증), 응답은 순수 타입으로 둔다.
+ * 응답까지 zod로 만들면 프론트에서 불필요한 파싱 비용이 든다.
+ */
+
+/** 모든 4xx/5xx 응답의 공통 형태. NestJS 예외 필터가 이 모양으로 정규화한다. */
+export interface ApiErrorBody {
+  /** 프론트가 분기에 쓰는 안정적인 코드. 메시지 문구는 바뀔 수 있어도 이건 유지한다. */
+  code: ApiErrorCode;
+  message: string;
+  /** 재시도 가능한 오류일 때, 몇 초 뒤에 다시 시도하면 되는지. */
+  retryAfterSeconds?: number;
+}
+
+export const API_ERROR_CODES = [
+  'unauthorized',
+  'forbidden',
+  'not_found',
+  'validation_failed',
+  /** 크레딧이 모자람. 프론트는 충전 시트를 띄운다. */
+  'insufficient_credits',
+  /** 무료 티어 LLM이 429를 냄. 사용자에게는 "잠시 후 다시" 로 보인다. */
+  'model_rate_limited',
+  /** LLM/이미지 제공자 쪽 실패. 크레딧은 환불된 상태다. */
+  'model_unavailable',
+  /** 안전 정책에 걸린 입력. */
+  'content_blocked',
+  /** 이미 수령한 미션 등. */
+  'already_claimed',
+  'internal_error',
+] as const;
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
+
+// ---------------------------------------------------------------- health
+
+export interface HealthResponse {
+  status: 'ok';
+  service: 'mysoulmate-api';
+  /** Vercel이 주입하는 배포 커밋 SHA. 어떤 버전이 떠 있는지 확인용. */
+  commit: string | null;
+  timestamp: string;
+}
+
+// ---------------------------------------------------------------- wallet
+
+export interface WalletState {
+  /** 유료/보상 크레딧 잔액. credit_ledger 합계와 일치한다. */
+  balance: number;
+  /** 오늘 남은 무료 대화 턴. */
+  freeTurnsRemaining: number;
+  /** 무료 쿼터가 다시 차는 시각 (ISO 8601). */
+  freeResetAt: string;
+}
+
+// ---------------------------------------------------------------- me
+
+export interface ProfileSummary {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  referralCode: string;
+}
+
+export interface MeResponse {
+  profile: ProfileSummary;
+  wallet: WalletState;
+  /** 온보딩을 마쳤는지. false면 프론트는 온보딩으로 보낸다. */
+  hasSoulmate: boolean;
+}
+
+// ---------------------------------------------------------------- soulmate
+
+export interface SoulmateResponse {
+  id: string;
+  name: string;
+  tone: RelationshipTone;
+  persona: Persona;
+  appearance: Appearance;
+  /** Supabase Storage 서명 URL. 만료되므로 캐시하지 않는다. */
+  avatarUrl: string | null;
+  avatarExpiresAt: string | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------- missions
+
+export interface MissionState {
+  code: MissionCode;
+  reward: number;
+  /** 지금 수령할 수 있는지. */
+  claimable: boolean;
+  /** 이미 받았다면 언제 받았는지. */
+  claimedAt: string | null;
+}
+
+export interface ClaimMissionResponse {
+  granted: number;
+  wallet: WalletState;
+}
+
+// ---------------------------------------------------------------- billing
+
+export interface CheckoutResponse {
+  /** 결제사 호스티드 체크아웃 URL. 프론트는 여기로 이동시킨다. */
+  url: string;
+  packCode: CreditPackCode;
+}
+
+// ---------------------------------------------------------------- chat (SSE)
+
+/**
+ * 채팅 응답은 SSE로 내린다. Vercel 서버리스에서 WebSocket은 쓸 수 없다.
+ * 각 이벤트는 `data: <JSON>\n\n` 형태로 전송된다.
+ */
+export type ChatStreamEvent =
+  /** 토큰 조각. 프론트는 이어붙인다. */
+  | { type: 'delta'; text: string }
+  /** 정상 종료. 확정된 메시지 id와 차감 후 잔액을 함께 준다. */
+  | { type: 'done'; messageId: string; wallet: WalletState }
+  /** 스트림 도중 실패. 크레딧은 이미 환불된 상태다. */
+  | { type: 'error'; code: ApiErrorCode; message: string; retryAfterSeconds?: number };
+
+export interface ChatMessageDto {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}

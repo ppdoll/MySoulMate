@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+next-env.d.ts
+
+# 환경변수 — .env.example 만 커밋한다
+.env
+.env.*
+!.env.example
+
+.vercel/
+.turbo/
+*.tsbuildinfo
+
+coverage/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

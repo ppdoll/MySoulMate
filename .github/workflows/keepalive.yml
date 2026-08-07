@@ -1,0 +1,41 @@
+name: Supabase keepalive
+
+# Supabase 무료 프로젝트는 1주일 동안 요청이 없으면 일시정지되고,
+# 대시보드에서 수동으로 깨워야 다시 살아난다.
+# 베타 기간에는 트래픽 공백이 생기기 쉬워서 주 2회 찔러둔다.
+#
+# 주의: GitHub은 60일 동안 커밋이 없는 저장소의 예약 워크플로를 자동으로 끈다.
+# 개발이 멈춘 기간에는 Actions 탭에서 다시 켜야 한다.
+
+on:
+  schedule:
+    # UTC 기준. 월/목 03:00 UTC = KST 정오
+    - cron: '0 3 * * 1,4'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "SUPABASE_URL 시크릿이 없습니다. 저장소 Settings > Secrets에 등록하세요." >&2
+            exit 1
+          fi
+
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "${SUPABASE_URL%/}/rest/v1/")
+
+          echo "REST 응답 코드: $status"
+
+          # RLS로 전부 막아뒀기 때문에 401/404도 정상이다.
+          # 중요한 건 프로젝트가 요청을 받아 깨어났다는 사실이다.
+          if [ "$status" -ge 500 ] || [ "$status" -eq 000 ]; then
+            echo "프로젝트가 응답하지 않습니다." >&2
+            exit 1
+          fi

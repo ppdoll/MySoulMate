@@ -1,0 +1,25 @@
+# 저장소에는 줄바꿈을 LF로 통일한다.
+# Windows에서 작업하고 Linux(Vercel 빌드, CI)에서 실행되므로
+# 체크아웃까지 LF로 맞춰야 스크립트가 깨지지 않는다.
+* text=auto eol=lf
+
+# CRLF가 섞이면 실행 자체가 실패한다.
+*.sh text eol=lf
+
+# Windows 전용 스크립트는 CRLF를 유지한다.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 바이너리
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# diff에서 접어둔다
+pnpm-lock.yaml linguist-generated=true -diff

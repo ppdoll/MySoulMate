@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+/*
+  따뜻하고 차분한 톤. 소울메이트라는 성격상 채도가 높으면 피로해진다.
+  다크 모드는 Tailwind 기본값(prefers-color-scheme)을 그대로 쓴다.
+*/
+@theme {
+  --color-cream: #fdf8f5;
+  --color-cream-deep: #f5ece5;
+  --color-ink: #2a2421;
+  --color-ink-soft: #6b615b;
+  --color-blush: #d98c8c;
+  --color-blush-deep: #b96f6f;
+  --color-night: #1a1614;
+  --color-night-soft: #262120;
+
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+    Roboto, 'Helvetica Neue', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--color-night);
+    color: var(--color-cream);
+  }
+}
