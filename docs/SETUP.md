@@ -25,19 +25,34 @@ Supabase 프로젝트 생성 → 마이그레이션 적용 → Google 로그인 
 
 ### 값 3개 받아두기
 
-프로젝트가 뜨면 아래 두 곳에서 값을 복사해 둔다. 3단계에서 `.env`에 넣는다.
+3단계에서 `.env`에 넣을 값들이다.
 
-| 값 | 위치 |
-| --- | --- |
-| Project URL | [Settings › Data API](https://supabase.com/dashboard/project/_/settings/api) |
-| publishable key (`sb_publishable_...`) | [Settings › API Keys](https://supabase.com/dashboard/project/_/settings/api-keys) |
-| secret key (`sb_secret_...`) | 같은 페이지. **Reveal** 을 눌러야 보인다 |
+**Project URL** — [Settings › Data API](https://supabase.com/dashboard/project/_/settings/api)
+에서 복사한다. `https://<project-ref>.supabase.co` 형태다.
+
+**API 키 2개** — [Settings › API Keys](https://supabase.com/dashboard/project/_/settings/api-keys).
+여기서 헷갈리기 쉬운데, **새 키는 기본으로 만들어져 있지 않다.** 직접 생성해야 나타난다.
+
+1. 페이지에 **API Keys** / **Legacy API Keys** 두 탭이 있다
+2. **API Keys** 탭에서 **Create new API Keys** 클릭
+3. 생성되는 값
+   - **Publishable key** → `sb_publishable_...`
+   - **Secret keys** → `sb_secret_...`
+
+> **secret key는 생성 직후 한 번만 전체가 보이는 경우가 많다.** 나오는 즉시 `apps/api/.env`에 붙여넣는다.
+> 놓치면 새로 만들어야 한다.
 
 - **secret key는 RLS를 전부 우회한다.** 프론트 코드나 저장소에 절대 올리지 않는다.
-  실수로 노출했다면 같은 페이지에서 바로 회전(rotate)시킨다.
-- 화면에 `anon` / `service_role` JWT 키만 보인다면 **Legacy API Keys** 탭에 있는 것이다.
-  그 키를 써도 동작하지만 [2026년 말 폐기 예정](https://supabase.com/docs/guides/api/api-keys)이므로
-  새 키가 있으면 새 키를 쓴다.
+  노출했다면 같은 페이지에서 바로 폐기하고 새로 만든다.
+- 새 키를 만들기 번거로우면 **Legacy API Keys** 탭의 `anon` / `service_role` 을 써도 코드는 그대로 동작한다.
+  값을 문자열로 넘길 뿐이라 형식을 가리지 않는다.
+  다만 [2026년 말 폐기 예정](https://supabase.com/docs/guides/api/api-keys)이라 나중에 갈아끼워야 한다
+  (그때도 값만 바꾸면 되고 코드는 손댈 게 없다).
+
+| 넣을 곳 | 새 키 | legacy 키 |
+| --- | --- | --- |
+| `apps/web/.env.local` → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | `anon` |
+| `apps/api/.env` → `SUPABASE_SECRET_KEY` | `sb_secret_...` | `service_role` |
 
 ---
 
