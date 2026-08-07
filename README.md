@@ -30,7 +30,7 @@ api는 Supabase JWKS로 서명만 로컬 검증한다(Auth 서버 왕복 없음)
   Node 20에는 전역 `WebSocket`이 없어 `apps/api`가 `ws` 폴백을 태운다. Vercel 런타임은 Node 22다.)
 - pnpm 9 이상
 - Supabase 계정, Google Cloud 계정, Vercel 계정
-- DB 마이그레이션을 로컬에서 검증하려면 WSL + PostgreSQL (Docker는 쓰지 않는다)
+- DB 마이그레이션을 로컬에서 검증하려면 WSL + PostgreSQL + pgvector (Docker는 쓰지 않는다)
 
 ---
 
@@ -203,15 +203,23 @@ bash supabase/test/run.sh
 
 마지막에 `PASS: ...` 가 찍혀야 한다. 실패하면 `spend_credits`의 `FOR UPDATE` 잠금부터 본다.
 
-PostgreSQL이 없다면 WSL에서:
+### 테스트 환경 준비 (한 번만)
+
+PostgreSQL이 없다면:
 
 ```bash
 sudo apt-get install -y postgresql postgresql-contrib
 ```
 
-> **로컬에서 검증되지 않는 것 하나** — pgvector는 Ubuntu 기본 저장소에 없어서(PGDG를 따로 붙여야 한다)
-> 스크립트가 `memories.embedding`을 `text`로 치환해 적용한다.
-> v1에서 쓰지 않는 컬럼이라 그대로 두었고, 그 컬럼의 타입만은 Supabase에 올릴 때 처음 확인된다.
+pgvector는 Ubuntu 기본 저장소에 없어서 PGDG를 붙여야 한다:
+
+```bash
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y && sudo apt-get install -y postgresql-14-pgvector
+```
+
+pgvector가 없어도 스크립트는 돌아간다 — `memories.embedding`을 `text`로 치환해 적용하고
+그 사실을 출력에 알린다. 다만 그러면 embedding 컬럼 타입만은 검증되지 않으니,
+설치해두면 마이그레이션이 원본 그대로 확인된다.
 
 ---
 

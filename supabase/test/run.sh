@@ -62,19 +62,48 @@ as_pg "$PGBIN/pg_ctl -D $DATA -l $RUNDIR/server.log -w -o \"-p $PORT -k $RUNDIR 
 echo "==> Supabase 객체 스텁"
 psql_run -f "$ROOT/supabase/test/00_bootstrap.sql"
 
-# 로컬 Postgres에는 pgvector가 없다(PGDG 저장소를 따로 붙여야 한다).
-# memories.embedding은 v1에서 쓰지 않는 컬럼이라, 로컬 검증에서만 text로 바꿔 넘긴다.
-# 이 치환 때문에 "embedding 컬럼 타입"만은 여기서 검증되지 않는다.
-strip_pgvector() {
-  sed -e '/create extension if not exists vector/d' \
-      -e 's/extensions\.vector(768)/text/g' "$1"
+# pgvector는 Ubuntu 기본 저장소에 없고 PGDG를 붙여야 들어온다.
+# 없는 환경에서도 나머지를 검증할 수 있게, 있으면 원본 그대로 쓰고 없으면 text로 치환한다.
+#   sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+#   sudo apt-get install -y postgresql-$PGVER-pgvector
+if [ -f "/usr/share/postgresql/$PGVER/extension/vector.control" ]; then
+  HAS_PGVECTOR=1
+else
+  HAS_PGVECTOR=0
+fi
+
+apply_migration() {
+  if [ "$HAS_PGVECTOR" = "1" ]; then
+    psql_run -f "$1"
+  else
+    sed -e '/create extension if not exists vector/d' \
+        -e 's/extensions\.vector(768)/text/g' "$1" | psql_run -f -
+  fi
 }
 
-echo "==> 마이그레이션 적용  (pgvector 없음 -> embedding 컬럼은 text로 치환)"
+if [ "$HAS_PGVECTOR" = "1" ]; then
+  echo "==> 마이그레이션 적용  (pgvector 있음 - 원본 그대로)"
+else
+  echo "==> 마이그레이션 적용  (pgvector 없음 - embedding 컬럼을 text로 치환)"
+fi
 for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "    $(basename "$f")"
-  strip_pgvector "$f" | psql_run -f -
+  apply_migration "$f"
 done
+
+# pgvector가 있을 때만 확인할 수 있는 것: embedding 컬럼이 진짜 vector(768)로 만들어졌는지.
+if [ "$HAS_PGVECTOR" = "1" ]; then
+  EMBED_TYPE=$(psql -h "$RUNDIR" -p "$PORT" -U postgres -d postgres -tAc \
+    "select format_type(atttypid, atttypmod) from pg_attribute
+      where attrelid = 'public.memories'::regclass and attname = 'embedding'")
+  # extensions 스키마가 search_path에 없으면 format_type이 'extensions.vector(768)'로
+  # 스키마까지 붙여서 돌려준다. 스키마 접두사를 떼고 비교한다.
+  if [ "${EMBED_TYPE##*.}" != "vector(768)" ]; then
+    echo "FAIL: memories.embedding 타입이 vector(768)이 아니라 '$EMBED_TYPE' 입니다" >&2
+    exit 1
+  fi
+  echo "    memories.embedding = $EMBED_TYPE"
+fi
 
 echo "==> 시드 (결제로 5크레딧 지급)"
 psql_run -f "$ROOT/supabase/test/01_seed.sql"
