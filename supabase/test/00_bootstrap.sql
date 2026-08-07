@@ -1,6 +1,9 @@
 -- 로컬 Postgres에서 마이그레이션을 검증하기 위한 최소 스텁.
 -- Supabase가 기본으로 제공하는 롤과 스키마를 흉내낸다.
 -- 실제 Supabase 프로젝트에서는 절대 실행하지 않는다.
+--
+-- run.sh가 /tmp에 만든 일회용 클러스터에서만 돌아가므로
+-- 여기서 만드는 롤은 평소 쓰는 클러스터에 남지 않는다.
 
 create role anon;
 create role authenticated;

@@ -30,6 +30,7 @@ api는 Supabase JWKS로 서명만 로컬 검증한다(Auth 서버 왕복 없음)
   Node 20에는 전역 `WebSocket`이 없어 `apps/api`가 `ws` 폴백을 태운다. Vercel 런타임은 Node 22다.)
 - pnpm 9 이상
 - Supabase 계정, Google Cloud 계정, Vercel 계정
+- DB 마이그레이션을 로컬에서 검증하려면 WSL + PostgreSQL (Docker는 쓰지 않는다)
 
 ---
 
@@ -173,24 +174,44 @@ curl -i http://localhost:3001/me
 브라우저에서 `http://localhost:3000` → 구글 로그인 → `/home`에서
 이름·무료 대화 잔여·크레딧·초대 코드가 보이면 M1까지 정상이다.
 
-### 크레딧 동시성 테스트
+### 마이그레이션 + 크레딧 동시성 테스트 (WSL)
 
-이 프로젝트에서 가장 깨지기 쉬운 부분이다. 탭 여러 개에서 동시에 보내면
+크레딧 차감은 이 프로젝트에서 가장 깨지기 쉬운 부분이다. 탭 여러 개에서 동시에 보내면
 잔액이 음수가 되거나 한 번 낼 크레딧으로 두 번 쓰는 사고가 나기 쉽다.
 
-Docker만 있으면 일회용 Postgres에 마이그레이션을 그대로 적용하고
-잔액 5인 계정에 동시 차감 20건을 던져 **정확히 5건만** 통과하는지 확인한다:
+WSL의 PostgreSQL로 검증한다. Windows에서:
+
+```bash
+wsl bash supabase/test/run.sh
+```
+
+WSL 안에서 직접 돌린다면:
 
 ```bash
 bash supabase/test/run.sh
 ```
 
-마지막에 `PASS: ...` 가 찍혀야 한다. 실패하면 원장 합계와 잔액이 어긋난 것이므로
-`spend_credits`의 `FOR UPDATE` 잠금이 제대로 걸리는지부터 본다.
+`/tmp`에 **일회용 클러스터를 새로 만들어** 쓰고 끝나면 지운다.
+평소 쓰는 클러스터(보통 5432)와 그 데이터는 건드리지 않고, TCP를 열지 않아 포트도 충돌하지 않는다.
 
-> 이 테스트는 **아직 실행되지 않았다.** 작성 시점에 로컬 Docker 엔진이 기동되지 않아
-> 마이그레이션 SQL은 실제 Postgres에 적용해 검증한 적이 없다.
-> Supabase 프로젝트에 붙여넣기 전에 이 스크립트를 한 번 돌리는 것을 권한다.
+하는 일:
+
+1. Supabase 기본 객체(`auth.users` 등)를 스텁으로 만든다
+2. `supabase/migrations/*.sql` 를 순서대로 적용한다
+3. 잔액 5인 계정에 동시 차감 20건을 던진다
+4. **정확히 5건만** 통과했고 `원장 합계 == 잔액`인지 검증한다
+
+마지막에 `PASS: ...` 가 찍혀야 한다. 실패하면 `spend_credits`의 `FOR UPDATE` 잠금부터 본다.
+
+PostgreSQL이 없다면 WSL에서:
+
+```bash
+sudo apt-get install -y postgresql postgresql-contrib
+```
+
+> **로컬에서 검증되지 않는 것 하나** — pgvector는 Ubuntu 기본 저장소에 없어서(PGDG를 따로 붙여야 한다)
+> 스크립트가 `memories.embedding`을 `text`로 치환해 적용한다.
+> v1에서 쓰지 않는 컬럼이라 그대로 두었고, 그 컬럼의 타입만은 Supabase에 올릴 때 처음 확인된다.
 
 ---
 
