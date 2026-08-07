@@ -10,6 +10,16 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# 구글 Cloud Console에서 받는 OAuth 클라이언트 자격증명 파일.
+# 파일 이름이 매번 달라서 정확히 지정할 수 없다. Client Secret이 평문으로 들어 있으므로
+# 저장소 어디에도 두지 않는다 — 값은 Supabase 대시보드에만 넣으면 된다.
+*client_secret*.json
+*.credentials.json
+service-account*.json
+*.pem
+*.p12
+*.key
+
 .vercel/
 .turbo/
 *.tsbuildinfo

@@ -8,6 +8,18 @@ import { z } from 'zod';
  * 첫 요청에서야 "undefined를 읽을 수 없다" 로 터지는 것보다
  * 배포 로그에 "SUPABASE_URL 없음" 이 찍히는 편이 훨씬 빨리 고쳐진다.
  */
+/**
+ * "비워둔다"는 곧 빈 문자열이다.
+ *
+ * .env 파일의 `KEY=` 나 Vercel 대시보드에 값 없이 등록한 항목은
+ * undefined가 아니라 ''로 들어온다. .optional()은 undefined만 허용하므로
+ * 그대로 두면 "비워두라"고 안내한 변수가 기동을 막는다.
+ */
+const optionalSecret = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().min(1).optional(),
+);
+
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
@@ -25,10 +37,10 @@ const EnvSchema = z.object({
    * 레거시 HS256 대칭 키를 쓰는 Supabase 프로젝트용 폴백.
    * 비대칭(ES256) 서명 키를 쓰는 프로젝트라면 비워두면 된다 — JWKS로 검증한다.
    */
-  SUPABASE_JWT_SECRET: z.string().min(1).optional(),
+  SUPABASE_JWT_SECRET: optionalSecret,
 
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
-  VERCEL_GIT_COMMIT_SHA: z.string().optional(),
+  VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });
 
 export type Env = z.infer<typeof EnvSchema>;
