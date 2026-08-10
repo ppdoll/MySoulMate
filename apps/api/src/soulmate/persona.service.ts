@@ -22,12 +22,18 @@ export class PersonaService {
   constructor(private readonly gemini: GeminiService) {}
 
   async generate(answers: OnboardingAnswers): Promise<Persona> {
-    return this.gemini.generateJson({
+    const persona = await this.gemini.generateJson({
       system: SYSTEM_PROMPT,
       prompt: buildPrompt(answers),
       schema: PersonaSchema,
       retries: 1,
     });
+
+    // 이름은 사용자가 정한 값을 그대로 쓴다.
+    // 프롬프트로 "바꾸지 마세요" 라고 해도 모델은 성을 붙이거나 다른 이름을 만들어낸다.
+    // 부탁이 아니라 코드로 못박아야 한다 — 사용자가 처음 보는 이름이 나오면
+    // "내가 만든 소울메이트" 라는 전제부터 깨진다.
+    return { ...persona, name: answers.callName };
   }
 }
 
@@ -37,6 +43,12 @@ const SYSTEM_PROMPT = `당신은 1인용 AI 동반자 서비스의 캐릭터 설
 작성 규칙
 - name, oneLiner, traits, speechSamples, backstory, interests, greeting 은 모두 한국어로 씁니다.
 - appearancePrompt 만 영어로 씁니다. 이미지 생성 모델에 그대로 들어가는 문장입니다.
+- **name 은 사용자가 정해준 이름을 글자 그대로 씁니다.** 성을 붙이거나, 줄이거나,
+  더 자연스러운 이름으로 바꾸지 않습니다. 사용자가 "은우" 라고 했으면 "은우" 입니다.
+- oneLiner 는 이 캐릭터가 사용자에게 건네는 짧은 한마디입니다. 소개문이 아니라 대사로 씁니다.
+  말투(반말/존댓말)를 지킵니다.
+- traits 는 성격 키워드입니다. 어미를 하나로 통일합니다
+  (예: "활발한 / 다정한 / 든든한" 처럼 전부 '-한' 형태. 명사형과 형용사형을 섞지 않습니다).
 - speechSamples 는 이 캐릭터가 실제로 할 법한 문장이어야 합니다. 사용자가 고른 말투(반말/존댓말)를 정확히 지킵니다.
 - greeting 은 첫 대화창에 바로 뜨는 인사말입니다. 처음 만난 사이답게, 부담스럽지 않게 씁니다.
 - backstory 는 대화에 일관성을 주기 위한 짧은 설정입니다. 지나치게 극적인 사연은 넣지 않습니다.
@@ -91,7 +103,7 @@ function buildPrompt(answers: OnboardingAnswers): string {
 
   lines.push(
     ``,
-    `이름은 "${answers.callName}" 를 그대로 쓰되, 어색하면 자연스럽게 다듬어도 됩니다.`,
+    `name 필드에는 정확히 "${answers.callName}" 를 넣습니다. 다른 이름을 만들지 않습니다.`,
   );
 
   return lines.join('\n');

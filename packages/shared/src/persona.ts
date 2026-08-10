@@ -72,11 +72,16 @@ export const APPEARANCE_VIBE_META: Record<AppearanceVibe, { label: string; descr
  * 제한이 없으면 토큰이 계속 불어나 무료 티어 한도를 빨리 태운다.
  */
 export const PersonaSchema = z.object({
-  /** 소울메이트의 이름. 사용자가 정한 이름을 그대로 쓰거나 다듬는다. */
+  /**
+   * 소울메이트의 이름.
+   *
+   * 사용자가 온보딩에서 입력한 값을 그대로 쓴다. 모델이 만들어낸 값은 생성 후 덮어쓴다 —
+   * 프롬프트로 부탁해도 모델은 성을 붙이거나 다른 이름을 지어낸다.
+   */
   name: z.string().min(1).max(20),
-  /** 한 줄 소개. 카드 UI에 표시된다. */
+  /** 카드에 표시되는 짧은 한마디. 소개문이 아니라 이 캐릭터의 대사다. */
   oneLiner: z.string().min(1).max(80),
-  /** 성격 키워드. UI에 태그로 노출된다. */
+  /** 성격 키워드. UI에 태그로 노출된다. 어미는 하나로 통일한다. */
   traits: z.array(z.string().min(1).max(20)).min(3).max(6),
   speechStyle: z.enum(SPEECH_STYLES),
   /** 말투 예시 문장. 시스템 프롬프트에서 few-shot 역할을 한다. */
