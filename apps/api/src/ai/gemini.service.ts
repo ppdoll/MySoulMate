@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type ThinkingLevel } from '@google/genai';
 import { z } from 'zod';
 import { AppConfig } from '../config/app-config';
 import { ModelBlockedError, ModelUnavailableError, normalizeProviderError } from './errors';
@@ -103,6 +103,7 @@ export class GeminiService {
     const startedAt = Date.now();
 
     try {
+      const level = this.config.env.GEMINI_THINKING_LEVEL;
       const response = await this.textAi.models.generateContent({
         model,
         contents: params.prompt,
@@ -110,10 +111,17 @@ export class GeminiService {
           systemInstruction: params.system,
           responseMimeType: 'application/json',
           responseJsonSchema: params.jsonSchema,
+          // 지정하지 않으면 모델 기본값을 그대로 쓴다.
+          ...(level ? { thinkingConfig: { thinkingLevel: level as ThinkingLevel } } : {}),
         },
       });
 
-      this.logUsage('text', model, response.usageMetadata, startedAt);
+      this.logUsage(
+        level ? `text(think=${level})` : 'text',
+        model,
+        response.usageMetadata,
+        startedAt,
+      );
 
       const text = response.text;
       if (!text) {

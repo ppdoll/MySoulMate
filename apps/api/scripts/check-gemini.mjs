@@ -35,9 +35,13 @@ console.log('');
 let failed = false;
 
 // --- 텍스트 (페르소나·대화 경로) -------------------------------------------
-try {
-  const ai = new GoogleGenAI({ apiKey: textKey });
-  const res = await ai.models.generateContent({
+// 사고 강도를 바꿔 두 번 호출해 토큰 차이를 같이 보여준다.
+// 사고 토큰은 출력 단가로 과금되는데 실제로는 출력보다 훨씬 크기 때문에,
+// 여기서 나오는 차이가 대화 비용을 정하는 가장 큰 변수다.
+const textAi = new GoogleGenAI({ apiKey: textKey });
+
+async function callText(thinkingLevel) {
+  return textAi.models.generateContent({
     model: textModel,
     contents: '한국어로 "안녕"이라고만 대답하세요.',
     config: {
@@ -47,12 +51,34 @@ try {
         properties: { greeting: { type: 'string' } },
         required: ['greeting'],
       },
+      ...(thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {}),
     },
   });
+}
+
+let baseThoughts = null;
+try {
+  const res = await callText(null);
+  baseThoughts = res.usageMetadata?.thoughtsTokenCount ?? 0;
   console.log(`✅ 텍스트 OK — 응답: ${res.text?.trim()}  ${usage(res)}`);
 } catch (err) {
   failed = true;
   console.log(`❌ 텍스트 실패 — ${diagnose(err)}`);
+}
+
+if (baseThoughts !== null) {
+  try {
+    const res = await callText('MINIMAL');
+    const minimal = res.usageMetadata?.thoughtsTokenCount ?? 0;
+    const saved = baseThoughts > 0 ? Math.round((1 - minimal / baseThoughts) * 100) : 0;
+    console.log(
+      `   thinking=MINIMAL 비교 — think ${baseThoughts} -> ${minimal}` +
+        (saved > 0 ? ` (${saved}% 감소)` : ' (변화 없음 — 이 모델은 하한이 있을 수 있음)'),
+    );
+    console.log('   적용하려면 GEMINI_THINKING_LEVEL=MINIMAL');
+  } catch {
+    console.log('   thinking=MINIMAL 비교 — 이 모델은 사고 강도 조절을 지원하지 않습니다');
+  }
 }
 
 // --- 이미지 (아바타 경로) ---------------------------------------------------

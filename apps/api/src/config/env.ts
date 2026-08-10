@@ -65,6 +65,21 @@ const EnvSchema = z.object({
   GEMINI_TEXT_MODEL: z.string().default('gemini-3.6-flash'),
   GEMINI_IMAGE_MODEL: z.string().default('gemini-2.5-flash-image'),
 
+  /**
+   * 사고(thinking) 강도. 비워두면 모델 기본값을 그대로 쓴다.
+   *
+   * 사고 토큰은 출력 단가로 과금되는데, 실측해보면 출력보다 훨씬 크다.
+   * ("안녕"만 답하는 호출에서 out=6 / think=290)
+   * 다만 낮추면 품질이 어떻게 변하는지는 실제 결과물로 확인해야 하므로
+   * 기본값을 바꾸지 않고 env로 실험할 수 있게만 열어둔다.
+   *
+   * MINIMAL 로 두면 대부분의 사고 토큰이 사라진다. 모델에 따라 허용 범위가 다르다.
+   */
+  GEMINI_THINKING_LEVEL: z
+    .enum(['MINIMAL', 'LOW', 'MEDIUM', 'HIGH'])
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
   VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });
