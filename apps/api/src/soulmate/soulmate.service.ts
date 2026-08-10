@@ -59,10 +59,14 @@ export class SoulmateService {
       ...(answers.appearanceNote ? { note: answers.appearanceNote } : {}),
     });
 
+    // 페르소나는 실패하면 만들 게 없으므로 그대로 실패시킨다.
     const persona = await this.runModel(() => this.personas.generate(answers));
-    const avatar = await this.runModel(() =>
-      this.avatars.createAndStore({ userId, soulmateId, persona, appearance }),
-    );
+
+    // 아바타는 실패해도 온보딩을 끝낸다.
+    // 이미지는 텍스트보다 실패 확률이 높은데(결제 미설정, 분당 한도, 안전 필터),
+    // 그것 때문에 사용자가 답한 질문 10개를 버리게 하면 안 된다.
+    // 아바타 없이 만들어두고 나중에 채운다 — 첫 아바타는 그때도 무료다.
+    const avatar = await this.tryCreateAvatar({ userId, soulmateId, persona, appearance });
 
     const { error } = await this.supabase.client.rpc('create_soulmate', {
       p_user: userId,
@@ -71,8 +75,8 @@ export class SoulmateService {
       p_tone: answers.tone,
       p_persona: persona,
       p_appearance: appearance,
-      p_storage_path: avatar.storagePath,
-      p_image_prompt: avatar.prompt,
+      p_storage_path: avatar?.storagePath ?? null,
+      p_image_prompt: avatar?.prompt ?? null,
       p_greeting: persona.greeting,
     });
 
@@ -86,9 +90,31 @@ export class SoulmateService {
     return created;
   }
 
+  /** 온보딩 중 아바타 생성. 실패해도 예외를 던지지 않고 null을 돌려준다. */
+  private async tryCreateAvatar(params: {
+    userId: string;
+    soulmateId: string;
+    persona: Persona;
+    appearance: Appearance;
+  }) {
+    try {
+      return await this.avatars.createAndStore(params);
+    } catch (err) {
+      this.logger.warn(
+        `아바타 생성 실패 — 소울메이트는 이미지 없이 생성합니다. user=${params.userId}: ` +
+          (err instanceof Error ? err.message : String(err)),
+      );
+      return null;
+    }
+  }
+
   /**
-   * 아바타 재생성. 크레딧을 먼저 차감하고 실패하면 되돌린다.
-   * 반대 순서면 응답만 받고 끊어서 공짜로 쓸 수 있다.
+   * 아바타 생성/재생성.
+   *
+   * 첫 아바타를 아직 못 받은 소울메이트라면 무료다 —
+   * 온보딩 중 이미지가 실패해서 비어 있는 경우가 여기 해당한다.
+   * 이미 아바타가 있으면 크레딧을 먼저 차감하고 실패하면 되돌린다.
+   * (반대 순서면 응답만 받고 끊어서 공짜로 쓸 수 있다)
    */
   async regenerateAvatar(userId: string, changeRequest?: string): Promise<SoulmateResponse> {
     const row = await this.findRow(userId);
@@ -97,15 +123,19 @@ export class SoulmateService {
     const persona = PersonaSchema.parse(row.persona);
     const appearance = AppearanceSchema.parse(row.appearance);
 
-    const spend = await this.credits.spend({
-      userId,
-      amount: CREDIT_COSTS.avatarRegenerate,
-      reason: 'avatar_regenerate_spend',
-      // 아바타에는 무료 쿼터가 없다. 대화용 무료 턴을 여기서 태우면 안 된다.
-      freeAllowance: 0,
-      refType: 'soulmate',
-      refId: row.id,
-    });
+    const isFirstAvatar = row.current_avatar_id === null;
+
+    const spend = isFirstAvatar
+      ? { freeUsed: 0, paidUsed: 0 }
+      : await this.credits.spend({
+          userId,
+          amount: CREDIT_COSTS.avatarRegenerate,
+          reason: 'avatar_regenerate_spend',
+          // 아바타에는 무료 쿼터가 없다. 대화용 무료 턴을 여기서 태우면 안 된다.
+          freeAllowance: 0,
+          refType: 'soulmate',
+          refId: row.id,
+        });
 
     try {
       // 같은 인물을 유지하려면 이전 이미지를 입력으로 넣어야 한다.
@@ -175,6 +205,7 @@ export class SoulmateService {
       appearance: AppearanceSchema.parse(row.appearance),
       avatarUrl,
       avatarExpiresAt,
+      hasAvatar: row.current_avatar_id !== null,
       createdAt: row.created_at,
     };
   }

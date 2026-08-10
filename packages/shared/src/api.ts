@@ -96,6 +96,13 @@ export interface SoulmateResponse {
   /** Supabase Storage 서명 URL. 만료되므로 캐시하지 않는다. */
   avatarUrl: string | null;
   avatarExpiresAt: string | null;
+  /**
+   * 아바타가 만들어진 적이 있는지.
+   *
+   * avatarUrl이 null인 이유는 두 가지다 — 아직 만든 적이 없거나, 서명 URL 발급이 실패했거나.
+   * 첫 아바타는 무료라서 둘을 구분해야 버튼 문구를 맞게 띄울 수 있다.
+   */
+  hasAvatar: boolean;
   createdAt: string;
 }
 

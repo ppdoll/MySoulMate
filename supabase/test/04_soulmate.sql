@@ -76,6 +76,75 @@ begin
 end;
 $$;
 
+-- 이미지 생성이 실패한 경우: 아바타 없이도 소울메이트가 만들어져야 한다.
+\echo '--- 아바타 없이 생성 ---'
+insert into auth.users (id, email, raw_user_meta_data)
+values ('00000000-0000-4000-8000-000000000003', 'noavatar@test.local', '{}'::jsonb);
+
+select public.create_soulmate(
+  '00000000-0000-4000-8000-000000000003',
+  '00000000-0000-4000-8000-0000000000a2',
+  '이든',
+  'mentor',
+  '{"name":"이든"}'::jsonb,
+  '{"archetype":"steady","presentation":"neutral","vibe":"calm"}'::jsonb,
+  null,   -- 아바타 실패
+  null,
+  '안녕하세요, 무슨 일 있으셨어요?'
+);
+
+do $$
+declare
+  v_current uuid;
+  v_avatars int;
+  v_msgs int;
+begin
+  select current_avatar_id into v_current
+    from public.soulmates where id = '00000000-0000-4000-8000-0000000000a2';
+  select count(*) into v_avatars
+    from public.soulmate_avatars where soulmate_id = '00000000-0000-4000-8000-0000000000a2';
+  select count(*) into v_msgs
+    from public.messages m
+    join public.conversations c on c.id = m.conversation_id
+   where c.soulmate_id = '00000000-0000-4000-8000-0000000000a2';
+
+  if v_current is not null then
+    raise exception 'FAIL: 아바타를 안 넘겼는데 current_avatar_id가 채워졌습니다';
+  end if;
+  if v_avatars <> 0 then
+    raise exception 'FAIL: 아바타 행이 %건 생겼습니다 (0이어야 함)', v_avatars;
+  end if;
+  -- 대화와 인사말은 아바타와 무관하게 만들어져야 한다.
+  if v_msgs <> 1 then
+    raise exception 'FAIL: 아바타가 없다고 인사말까지 빠졌습니다 (%건)', v_msgs;
+  end if;
+
+  raise notice 'PASS: 아바타 없이도 소울메이트와 대화 스레드가 생성됩니다';
+end;
+$$;
+
+-- 나중에 첫 아바타를 채우면 정상적으로 붙어야 한다.
+select public.replace_soulmate_avatar(
+  '00000000-0000-4000-8000-000000000003',
+  '00000000-0000-4000-8000-0000000000a2',
+  'user/soulmate/late-first.webp',
+  'late first prompt',
+  null   -- 이전 아바타가 없으므로 source 없음
+);
+
+do $$
+declare
+  v_current uuid;
+begin
+  select current_avatar_id into v_current
+    from public.soulmates where id = '00000000-0000-4000-8000-0000000000a2';
+  if v_current is null then
+    raise exception 'FAIL: 나중에 만든 첫 아바타가 붙지 않았습니다';
+  end if;
+  raise notice 'PASS: 비어 있던 아바타를 나중에 채울 수 있습니다';
+end;
+$$;
+
 -- 남의 소울메이트는 건드릴 수 없어야 한다.
 \echo '--- 소유권 검사 ---'
 do $$

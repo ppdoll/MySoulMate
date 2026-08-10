@@ -23,7 +23,9 @@ export function SoulmateCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cost = CREDIT_COSTS.avatarRegenerate;
+  // 첫 아바타는 무료다. 온보딩 중 이미지 생성이 실패해 비어 있는 경우가 여기 해당한다.
+  const isFirstAvatar = !soulmate.hasAvatar;
+  const cost = isFirstAvatar ? 0 : CREDIT_COSTS.avatarRegenerate;
   const affordable = wallet.balance >= cost;
 
   async function regenerate() {
@@ -61,7 +63,16 @@ export function SoulmateCard({
           className="aspect-square w-full object-cover"
         />
       ) : (
-        <div className="flex aspect-square w-full items-center justify-center text-4xl">🤍</div>
+        <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 text-center">
+          <span className="text-4xl">🤍</span>
+          {isFirstAvatar && (
+            <p className="px-6 text-sm text-ink-soft dark:text-cream/60">
+              아직 모습이 없어요.
+              <br />
+              아래에서 만들어 주세요.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="p-5">
@@ -90,15 +101,21 @@ export function SoulmateCard({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="mt-5 w-full rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
+            className={`mt-5 w-full rounded-full py-2.5 text-sm ${
+              isFirstAvatar
+                ? 'bg-blush font-medium text-white'
+                : 'border border-black/10 dark:border-white/15'
+            }`}
           >
-            모습 다시 그리기 · {cost} 크레딧
+            {isFirstAvatar ? '모습 만들기 · 무료' : `모습 다시 그리기 · ${cost} 크레딧`}
           </button>
         ) : (
           <div className="mt-5 rounded-xl border border-black/10 p-4 dark:border-white/15">
-            <p className="text-sm">어떻게 바꿔볼까요?</p>
+            <p className="text-sm">{isFirstAvatar ? '어떤 모습이면 좋을까요?' : '어떻게 바꿔볼까요?'}</p>
             <p className="mt-1 text-xs text-ink-soft dark:text-cream/50">
-              같은 사람은 그대로 두고 표정이나 옷차림만 바뀌어요. 비워두면 알아서 바꿔요.
+              {isFirstAvatar
+                ? '온보딩에서 답한 내용으로 만들어요. 더 하고 싶은 말이 있으면 적어주세요.'
+                : '같은 사람은 그대로 두고 표정이나 옷차림만 바뀌어요. 비워두면 알아서 바꿔요.'}
             </p>
             <textarea
               value={changeRequest}
@@ -124,7 +141,13 @@ export function SoulmateCard({
                 disabled={busy || !affordable}
                 className="flex-1 rounded-full bg-blush px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
               >
-                {busy ? '그리는 중…' : affordable ? `${cost} 크레딧 쓰기` : '크레딧 부족'}
+                {busy
+                  ? '그리는 중…'
+                  : isFirstAvatar
+                    ? '만들기'
+                    : affordable
+                      ? `${cost} 크레딧 쓰기`
+                      : '크레딧 부족'}
               </button>
             </div>
           </div>
