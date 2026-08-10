@@ -33,6 +33,22 @@ export class AppConfig {
   get commit(): string | null {
     return this.env.VERCEL_GIT_COMMIT_SHA ?? null;
   }
+
+  /** 텍스트(페르소나·대화)용 키. 무료 티어 프로젝트 키를 여기에 둘 수 있다. */
+  get geminiTextKey(): string {
+    // env 검증에서 둘 중 하나는 반드시 있음을 보장한다.
+    return (this.env.GEMINI_TEXT_API_KEY ?? this.env.GEMINI_API_KEY)!;
+  }
+
+  /** 이미지(아바타)용 키. 이미지는 무료 티어가 없어 결제 연결 프로젝트여야 한다. */
+  get geminiImageKey(): string {
+    return (this.env.GEMINI_IMAGE_API_KEY ?? this.env.GEMINI_API_KEY)!;
+  }
+
+  /** 두 용도가 서로 다른 키를 쓰는지. 기동 로그에 남겨 설정 실수를 빨리 알아채게 한다. */
+  get geminiKeysSplit(): boolean {
+    return this.geminiTextKey !== this.geminiImageKey;
+  }
 }
 
 @Global()

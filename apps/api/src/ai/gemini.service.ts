@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { AppConfig } from '../config/app-config';
 import { ModelBlockedError, ModelUnavailableError, normalizeProviderError } from './errors';
+import { formatUsage, readUsage } from './usage';
 
 export interface GeneratedImage {
   data: Buffer;
@@ -24,10 +25,25 @@ export interface ImageInput {
 @Injectable()
 export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
-  private readonly ai: GoogleGenAI;
+
+  /**
+   * 텍스트와 이미지가 서로 다른 키를 쓸 수 있어 클라이언트를 둘로 나눈다.
+   * 텍스트는 무료 티어 프로젝트, 이미지는 결제 연결 프로젝트로 보내는 구성이 기본 의도다.
+   */
+  private readonly textAi: GoogleGenAI;
+  private readonly imageAi: GoogleGenAI;
 
   constructor(private readonly config: AppConfig) {
-    this.ai = new GoogleGenAI({ apiKey: config.env.GEMINI_API_KEY });
+    this.textAi = new GoogleGenAI({ apiKey: config.geminiTextKey });
+    this.imageAi = config.geminiKeysSplit
+      ? new GoogleGenAI({ apiKey: config.geminiImageKey })
+      : this.textAi;
+
+    this.logger.log(
+      config.geminiKeysSplit
+        ? '텍스트/이미지 키 분리됨 (텍스트는 무료 티어 프로젝트일 수 있음)'
+        : '텍스트/이미지가 같은 키를 사용합니다',
+    );
   }
 
   /**
@@ -83,9 +99,12 @@ export class GeminiService {
     prompt: string;
     jsonSchema: unknown;
   }): Promise<string> {
+    const model = this.config.env.GEMINI_TEXT_MODEL;
+    const startedAt = Date.now();
+
     try {
-      const response = await this.ai.models.generateContent({
-        model: this.config.env.GEMINI_TEXT_MODEL,
+      const response = await this.textAi.models.generateContent({
+        model,
         contents: params.prompt,
         config: {
           systemInstruction: params.system,
@@ -93,6 +112,8 @@ export class GeminiService {
           responseJsonSchema: params.jsonSchema,
         },
       });
+
+      this.logUsage('text', model, response.usageMetadata, startedAt);
 
       const text = response.text;
       if (!text) {
@@ -130,11 +151,21 @@ export class GeminiService {
         ]
       : params.prompt;
 
+    const model = this.config.env.GEMINI_IMAGE_MODEL;
+    const startedAt = Date.now();
+
     try {
-      const response = await this.ai.models.generateContent({
-        model: this.config.env.GEMINI_IMAGE_MODEL,
+      const response = await this.imageAi.models.generateContent({
+        model,
         contents,
       });
+
+      this.logUsage(
+        params.baseImage ? 'image(edit)' : 'image(new)',
+        model,
+        response.usageMetadata,
+        startedAt,
+      );
 
       for (const part of response.candidates?.[0]?.content?.parts ?? []) {
         const inline = part.inlineData;
@@ -147,6 +178,7 @@ export class GeminiService {
       }
 
       // 이미지 대신 텍스트만 오는 경우는 대개 모델이 거절한 것이고, 그 이유가 텍스트에 담겨 있다.
+      // 이때도 토큰은 소모됐으므로 위에서 이미 사용량을 기록해 둔다.
       const explanation = response.text?.slice(0, 200);
       const reason = response.candidates?.[0]?.finishReason;
       this.logger.warn(`이미지 파트 없음 (finishReason=${reason ?? 'none'}): ${explanation ?? ''}`);
@@ -155,5 +187,29 @@ export class GeminiService {
       if (err instanceof ModelBlockedError) throw err;
       throw normalizeProviderError(err);
     }
+  }
+
+  /**
+   * 매 호출의 실측 토큰을 남긴다.
+   *
+   * 무료 쿼터를 몇 턴으로 할지, thinking을 끌지, 컨텍스트를 얼마나 줄일지는
+   * 전부 이 숫자로 판단해야 한다. 추정으로 정하면 대개 틀린다.
+   * 텍스트를 무료 티어 키로 호출했다면 찍히는 비용은 "유료로 옮겼을 때의 환산값"이다.
+   */
+  private logUsage(
+    purpose: string,
+    model: string,
+    metadata: unknown,
+    startedAt: number,
+  ): void {
+    if (!metadata) return;
+    this.logger.log(
+      formatUsage({
+        purpose,
+        model,
+        usage: readUsage(metadata),
+        elapsedMs: Date.now() - startedAt,
+      }),
+    );
   }
 }

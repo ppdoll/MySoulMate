@@ -39,8 +39,21 @@ const EnvSchema = z.object({
    */
   SUPABASE_JWT_SECRET: optionalSecret,
 
-  /** Google AI Studio에서 발급. 페르소나(텍스트)와 아바타(이미지) 생성에 쓴다. */
-  GEMINI_API_KEY: z.string().min(1),
+  /**
+   * Gemini 키. 텍스트와 이미지를 다른 키로 나눌 수 있다.
+   *
+   * 나누는 이유: 텍스트는 무료 티어가 있고 이미지는 없다.
+   * 결제를 연결하지 않은 별도 프로젝트의 키를 텍스트에 쓰면 대화 비용이 0이 되고,
+   * 결제가 연결된 프로젝트 키는 이미지에만 쓴다.
+   * (선불 잔액이 0이 되면 그 결제 계정의 모든 키가 함께 막히므로 분리해두면 대화는 계속 산다)
+   *
+   * 나누지 않을 거면 GEMINI_API_KEY 하나만 채우면 된다.
+   */
+  GEMINI_API_KEY: optionalSecret,
+  /** 무료 티어 프로젝트 키. 비우면 GEMINI_API_KEY를 쓴다. */
+  GEMINI_TEXT_API_KEY: optionalSecret,
+  /** 결제 연결 프로젝트 키. 비우면 GEMINI_API_KEY를 쓴다. */
+  GEMINI_IMAGE_API_KEY: optionalSecret,
 
   /**
    * 모델 ID를 환경변수로 빼두는 이유: 모델이 자주 바뀌고 무료 티어 여부도 바뀐다.
@@ -56,6 +69,25 @@ const EnvSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });
 
+/**
+ * 용도별 키가 하나도 해결되지 않으면 부팅을 막는다.
+ * 첫 대화나 첫 아바타 생성에서야 "키 없음"으로 실패하면 원인 찾기가 오래 걸린다.
+ */
+const EnvSchemaWithKeys = EnvSchema.superRefine((env, ctx) => {
+  for (const [purpose, specific] of [
+    ['텍스트', env.GEMINI_TEXT_API_KEY],
+    ['이미지', env.GEMINI_IMAGE_API_KEY],
+  ] as const) {
+    if (!specific && !env.GEMINI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [purpose === '텍스트' ? 'GEMINI_TEXT_API_KEY' : 'GEMINI_IMAGE_API_KEY'],
+        message: `${purpose}용 키가 없습니다. 이 값이나 GEMINI_API_KEY 중 하나를 채우세요.`,
+      });
+    }
+  }
+});
+
 export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | undefined;
@@ -66,7 +98,7 @@ export function loadEnv(): Env {
   // 로컬 개발용. Vercel에는 .env 파일이 없고 환경변수가 이미 주입돼 있어 아무 일도 하지 않는다.
   loadDotenv({ quiet: true });
 
-  const parsed = EnvSchema.safeParse(process.env);
+  const parsed = EnvSchemaWithKeys.safeParse(process.env);
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
