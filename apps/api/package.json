@@ -6,6 +6,7 @@
     "dev": "nest start --watch",
     "build": "pnpm --filter @mysoulmate/shared build && nest build",
     "start": "node dist/main.js",
+    "check:gemini": "node scripts/check-gemini.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
