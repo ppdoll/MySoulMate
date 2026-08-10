@@ -140,6 +140,54 @@ export class GeminiService {
   }
 
   /**
+   * 대화 응답을 스트리밍으로 받는다.
+   *
+   * 첫 글자가 빨리 나오는 게 체감 속도를 좌우한다.
+   * 전체를 기다렸다 한 번에 주면 서버리스 콜드 스타트까지 겹쳐 몇 초씩 빈 화면이 된다.
+   */
+  async *streamChat(params: {
+    system: string;
+    messages: { role: 'user' | 'assistant'; content: string }[];
+  }): AsyncGenerator<string, void, undefined> {
+    const model = this.config.env.GEMINI_TEXT_MODEL;
+    const level = this.config.env.GEMINI_THINKING_LEVEL;
+    const startedAt = Date.now();
+
+    let stream;
+    try {
+      stream = await this.textAi.models.generateContentStream({
+        model,
+        // Gemini는 assistant 를 'model' 이라고 부른다.
+        contents: params.messages.map((m) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        })),
+        config: {
+          systemInstruction: params.system,
+          ...(level ? { thinkingConfig: { thinkingLevel: level as ThinkingLevel } } : {}),
+        },
+      });
+    } catch (err) {
+      throw normalizeProviderError(err);
+    }
+
+    let lastUsage: unknown;
+    try {
+      for await (const chunk of stream) {
+        if (chunk.usageMetadata) lastUsage = chunk.usageMetadata;
+        const text = chunk.text;
+        if (text) yield text;
+      }
+    } catch (err) {
+      // 스트림 도중 끊기는 경우. 이미 보낸 조각은 호출부가 처리한다.
+      throw normalizeProviderError(err);
+    } finally {
+      // 사용량은 마지막 청크에 실려온다. 끊겼어도 있으면 남긴다.
+      this.logUsage(level ? `chat(think=${level})` : 'chat', model, lastUsage, startedAt);
+    }
+  }
+
+  /**
    * 이미지를 생성한다.
    *
    * baseImage를 함께 넘기면 그 이미지를 편집하는 방식으로 동작한다.

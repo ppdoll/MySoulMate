@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   CREDIT_COSTS,
   RELATIONSHIP_TONE_META,
@@ -122,15 +123,18 @@ export function SoulmateCard({
           ))}
         </div>
 
+        <Link
+          href="/chat"
+          className="mt-5 block w-full rounded-full bg-blush py-3 text-center text-sm font-medium text-white"
+        >
+          {soulmate.name}와 대화하기
+        </Link>
+
         {!open ? (
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className={`mt-5 w-full rounded-full py-2.5 text-sm ${
-              isFirstAvatar
-                ? 'bg-blush font-medium text-white'
-                : 'border border-black/10 dark:border-white/15'
-            }`}
+            className="mt-2.5 w-full rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
           >
             {isFirstAvatar ? '모습 만들기 · 무료' : `모습 다시 그리기 · ${cost} 크레딧`}
           </button>

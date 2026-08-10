@@ -5,9 +5,10 @@ import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { MeModule } from './me/me.module';
 import { SoulmateModule } from './soulmate/soulmate.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
-  imports: [AppConfigModule, SupabaseModule, AuthModule, MeModule, SoulmateModule],
+  imports: [AppConfigModule, SupabaseModule, AuthModule, MeModule, SoulmateModule, ChatModule],
   controllers: [HealthController],
 })
 export class AppModule {}

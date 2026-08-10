@@ -157,3 +157,16 @@ export interface ChatMessageDto {
   content: string;
   createdAt: string;
 }
+
+export const SendMessageSchema = z.object({
+  text: z.string().trim().min(1).max(1000),
+});
+
+export type SendMessageRequest = z.infer<typeof SendMessageSchema>;
+
+export interface ChatHistoryResponse {
+  /** 오래된 것부터 정렬. 화면에 그대로 이어붙이면 된다. */
+  messages: ChatMessageDto[];
+  /** 더 위로 불러올 게 남았는지. */
+  hasMore: boolean;
+}
