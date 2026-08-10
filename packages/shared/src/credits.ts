@@ -19,6 +19,13 @@ export const CREDIT_COSTS = {
   chatTurn: 1,
   /** 아바타 재생성 1회. 첫 생성은 온보딩에 포함되어 무료다. */
   avatarRegenerate: 10,
+  /**
+   * 소울메이트를 지우고 처음부터 다시 만들기.
+   *
+   * 재생성(10)보다 비싼 이유: 페르소나를 새로 만들고 첫 아바타도 다시 무료로 받게 된다.
+   * 같은 값으로 두면 아바타 재생성 대신 이쪽을 반복하는 게 이득이 되어버린다.
+   */
+  soulmateReset: 20,
 } as const;
 
 export type CreditCostKey = keyof typeof CREDIT_COSTS;
@@ -36,6 +43,7 @@ export const QUOTA_RESET_TIMEZONE = 'Asia/Seoul';
 export const CREDIT_REASONS = [
   'chat_spend',
   'avatar_regenerate_spend',
+  'soulmate_reset_spend',
   'mission_reward',
   'purchase',
   'refund',

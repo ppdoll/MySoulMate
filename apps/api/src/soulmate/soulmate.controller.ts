@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   OnboardingAnswersSchema,
   RegenerateAvatarSchema,
@@ -21,7 +21,7 @@ export class SoulmateController {
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(OnboardingAnswersSchema)) answers: OnboardingAnswers,
   ): Promise<SoulmateResponse> {
-    return this.soulmates.create(user.id, answers);
+    return this.soulmates.create(user, answers);
   }
 
   @Get('soulmate')
@@ -31,12 +31,22 @@ export class SoulmateController {
     return soulmate;
   }
 
-  /** 아바타 재생성. 크레딧을 소모한다. */
+  /** 아바타 생성/재생성. 첫 아바타는 무료, 이후는 크레딧을 쓴다. */
   @Post('soulmate/avatar/regenerate')
   regenerate(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(RegenerateAvatarSchema)) body: RegenerateAvatarRequest,
   ): Promise<SoulmateResponse> {
-    return this.soulmates.regenerateAvatar(user.id, body.changeRequest);
+    return this.soulmates.regenerateAvatar(user, body.changeRequest);
+  }
+
+  /**
+   * 소울메이트를 지운다. 대화 기록까지 함께 사라진다.
+   * 지운 뒤 /onboarding 으로 처음부터 다시 만들 수 있다.
+   */
+  @Delete('soulmate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  reset(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.soulmates.reset(user);
   }
 }

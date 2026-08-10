@@ -59,7 +59,24 @@ export class CreditsService {
     freeAllowance?: number;
     refType?: string;
     refId?: string;
+    /**
+     * 운영자 면제. 차감을 아예 건너뛴다.
+     *
+     * 호출부마다 분기하지 않고 여기서 한 번에 처리하는 이유:
+     * 새 기능(대화 등)을 붙일 때 면제 처리를 빠뜨리지 않기 위해서다.
+     * 원장에도 남기지 않는다 — 쓰지 않은 크레딧을 기록하면 정합성 검사가 어긋난다.
+     */
+    unlimited?: boolean;
   }): Promise<SpendResult> {
+    if (params.unlimited) {
+      this.logger.debug(`운영자 면제: ${params.reason} ${params.amount} (user=${params.userId})`);
+      return {
+        freeUsed: 0,
+        paidUsed: 0,
+        wallet: await this.getWallet(params.userId),
+      };
+    }
+
     const { data, error } = await this.supabase.client.rpc('spend_credits', {
       p_user: params.userId,
       p_amount: params.amount,

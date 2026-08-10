@@ -50,11 +50,16 @@ export class SupabaseAuthGuard implements CanActivate {
     if (!sub) throw ApiException.unauthorized('토큰에 사용자 정보가 없습니다.');
 
     const meta = (payload.user_metadata ?? {}) as Record<string, unknown>;
+    const email = typeof payload.email === 'string' ? payload.email : null;
+
     req.user = {
       id: sub,
-      email: typeof payload.email === 'string' ? payload.email : null,
+      email,
       name: pickString(meta.full_name) ?? pickString(meta.name),
       avatarUrl: pickString(meta.avatar_url) ?? pickString(meta.picture),
+      // 토큰의 이메일은 Supabase가 검증한 값이고 서명으로 보호된다.
+      // 클라이언트가 조작할 수 없으므로 여기서 판정해도 안전하다.
+      isAdmin: this.config.isAdmin(email),
     };
     return true;
   }

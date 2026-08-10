@@ -8,6 +8,11 @@ export interface AuthUser {
   /** 구글 프로필에서 온 값. 토큰의 user_metadata 클레임에 실려 온다. */
   name: string | null;
   avatarUrl: string | null;
+  /**
+   * 운영자 여부. ADMIN_EMAILS 환경변수로만 정해진다.
+   * 크레딧과 무료 쿼터 제한을 받지 않는다.
+   */
+  isAdmin: boolean;
 }
 
 /** 요청 객체에 가드가 실어둔 사용자 정보. */

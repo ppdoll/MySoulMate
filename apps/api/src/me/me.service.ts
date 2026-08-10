@@ -36,7 +36,7 @@ export class MeService {
       referralCode: profile.referral_code,
     };
 
-    return { profile: summary, wallet, hasSoulmate };
+    return { profile: summary, wallet, hasSoulmate, isAdmin: user.isAdmin };
   }
 
   /**

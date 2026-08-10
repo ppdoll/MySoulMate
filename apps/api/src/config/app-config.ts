@@ -49,6 +49,19 @@ export class AppConfig {
   get geminiKeysSplit(): boolean {
     return this.geminiTextKey !== this.geminiImageKey;
   }
+
+  /** 운영자 이메일 목록. 비교는 소문자로 한다 — 구글이 대소문자를 보존해서 돌려준다. */
+  get adminEmails(): string[] {
+    return (this.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  isAdmin(email: string | null): boolean {
+    if (!email) return false;
+    return this.adminEmails.includes(email.toLowerCase());
+  }
 }
 
 @Global()

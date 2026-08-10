@@ -12,13 +12,18 @@ import { ApiError, apiFetch } from '@/lib/api';
 export function SoulmateCard({
   soulmate,
   wallet,
+  isAdmin,
   onUpdated,
+  onReset,
 }: {
   soulmate: SoulmateResponse;
   wallet: WalletState;
+  isAdmin: boolean;
   onUpdated: (next: SoulmateResponse) => void;
+  onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [changeRequest, setChangeRequest] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +31,9 @@ export function SoulmateCard({
   // 첫 아바타는 무료다. 온보딩 중 이미지 생성이 실패해 비어 있는 경우가 여기 해당한다.
   const isFirstAvatar = !soulmate.hasAvatar;
   const cost = isFirstAvatar ? 0 : CREDIT_COSTS.avatarRegenerate;
-  const affordable = wallet.balance >= cost;
+  const affordable = isAdmin || wallet.balance >= cost;
+  const resetCost = CREDIT_COSTS.soulmateReset;
+  const canReset = isAdmin || wallet.balance >= resetCost;
 
   async function regenerate() {
     setBusy(true);
@@ -48,6 +55,24 @@ export function SoulmateCard({
           : '다시 그리지 못했어요.',
       );
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch<void>('/soulmate', { method: 'DELETE' });
+      onReset();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.code === 'insufficient_credits'
+            ? `크레딧이 ${resetCost}개 필요해요.`
+            : err.message
+          : '지우지 못했어요.',
+      );
       setBusy(false);
     }
   }
@@ -143,7 +168,7 @@ export function SoulmateCard({
               >
                 {busy
                   ? '그리는 중…'
-                  : isFirstAvatar
+                  : isFirstAvatar || isAdmin
                     ? '만들기'
                     : affordable
                       ? `${cost} 크레딧 쓰기`
@@ -152,6 +177,49 @@ export function SoulmateCard({
             </div>
           </div>
         )}
+
+        {/* 되돌릴 수 없는 작업이라 한 번 더 묻는다. */}
+        <div className="mt-3 border-t border-black/5 pt-3 dark:border-white/10">
+          {!confirmingReset ? (
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingReset(true);
+                setError(null);
+              }}
+              className="w-full py-1.5 text-xs text-ink-soft underline-offset-4 hover:underline dark:text-cream/50"
+            >
+              처음부터 다시 만들기{isAdmin ? '' : ` · ${resetCost} 크레딧`}
+            </button>
+          ) : (
+            <div className="rounded-xl border border-blush/40 p-4">
+              <p className="text-sm font-medium">{soulmate.name}를 지우고 다시 만들까요?</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft dark:text-cream/50">
+                지금까지 나눈 대화와 모습이 모두 사라져요. 되돌릴 수 없어요.
+                {isAdmin ? ' (운영자 계정이라 크레딧은 들지 않아요)' : ` ${resetCost} 크레딧이 들어요.`}
+              </p>
+              {error && <p className="mt-2 text-sm text-blush-deep">{error}</p>}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(false)}
+                  disabled={busy}
+                  className="flex-1 rounded-full border border-black/10 px-4 py-2 text-sm dark:border-white/15"
+                >
+                  그대로 둘게요
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void reset()}
+                  disabled={busy || !canReset}
+                  className="flex-1 rounded-full bg-blush-deep px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                >
+                  {busy ? '지우는 중…' : canReset ? '지우고 다시' : '크레딧 부족'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

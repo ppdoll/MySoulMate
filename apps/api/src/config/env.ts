@@ -80,6 +80,15 @@ const EnvSchema = z.object({
     .optional()
     .or(z.literal('').transform(() => undefined)),
 
+  /**
+   * 운영자 이메일. 쉼표로 여러 개.
+   *
+   * 이 계정들은 크레딧과 무료 쿼터 제한을 받지 않는다.
+   * DB 컬럼이 아니라 환경변수로 두는 이유: 값이 새거나 버그가 나도
+   * 사용자가 스스로를 운영자로 만들 수 없어야 한다.
+   */
+  ADMIN_EMAILS: optionalSecret,
+
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
   VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });

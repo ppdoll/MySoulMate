@@ -145,6 +145,76 @@ begin
 end;
 $$;
 
+-- 다시 만들기: 지우면 아바타/대화/메시지가 함께 사라져야 하고,
+-- 남의 것은 지울 수 없어야 한다.
+\echo '--- 삭제 ---'
+do $$
+begin
+  begin
+    perform public.delete_soulmate(
+      '00000000-0000-4000-8000-000000000001',   -- 다른 사용자
+      '00000000-0000-4000-8000-0000000000a2'
+    );
+    raise exception 'FAIL: 다른 사용자가 소울메이트를 지울 수 있었습니다';
+  exception
+    when sqlstate '45004' then
+      raise notice 'PASS: 남의 소울메이트 삭제가 차단됩니다';
+  end;
+end;
+$$;
+
+select public.delete_soulmate(
+  '00000000-0000-4000-8000-000000000003',
+  '00000000-0000-4000-8000-0000000000a2'
+);
+
+do $$
+declare
+  v_soulmates int;
+  v_avatars int;
+  v_convs int;
+  v_msgs int;
+  v_wallet int;
+begin
+  select count(*) into v_soulmates
+    from public.soulmates where id = '00000000-0000-4000-8000-0000000000a2';
+  select count(*) into v_avatars
+    from public.soulmate_avatars where soulmate_id = '00000000-0000-4000-8000-0000000000a2';
+  select count(*) into v_convs
+    from public.conversations where soulmate_id = '00000000-0000-4000-8000-0000000000a2';
+  select count(*) into v_msgs
+    from public.messages m
+    left join public.conversations c on c.id = m.conversation_id
+   where c.soulmate_id = '00000000-0000-4000-8000-0000000000a2';
+  -- 지갑은 남아야 한다. 소울메이트를 지웠다고 크레딧이 사라지면 안 된다.
+  select count(*) into v_wallet
+    from public.credit_wallets where user_id = '00000000-0000-4000-8000-000000000003';
+
+  if v_soulmates <> 0 or v_avatars <> 0 or v_convs <> 0 or v_msgs <> 0 then
+    raise exception 'FAIL: cascade 미흡 (soulmates=% avatars=% convs=% msgs=%)',
+      v_soulmates, v_avatars, v_convs, v_msgs;
+  end if;
+  if v_wallet <> 1 then
+    raise exception 'FAIL: 소울메이트 삭제로 지갑까지 사라졌습니다';
+  end if;
+
+  raise notice 'PASS: 삭제 시 아바타/대화/메시지가 함께 지워지고 지갑은 남습니다';
+end;
+$$;
+
+-- 지운 뒤에는 같은 사용자가 다시 만들 수 있어야 한다(유니크 인덱스에 안 걸림).
+select public.create_soulmate(
+  '00000000-0000-4000-8000-000000000003',
+  '00000000-0000-4000-8000-0000000000a3',
+  '다시',
+  'friend',
+  '{"name":"다시"}'::jsonb,
+  '{"archetype":"sunlight","presentation":"neutral","vibe":"bright"}'::jsonb,
+  null, null,
+  '다시 만났네!'
+);
+\echo 'PASS: 삭제 후 재생성 가능'
+
 -- 남의 소울메이트는 건드릴 수 없어야 한다.
 \echo '--- 소유권 검사 ---'
 do $$

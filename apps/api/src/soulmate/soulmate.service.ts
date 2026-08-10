@@ -14,6 +14,7 @@ import { SupabaseService } from '../supabase/supabase.module';
 import { CreditsService } from '../credits/credits.service';
 import { ApiException } from '../common/api-exception';
 import { ModelBlockedError, ModelRateLimitedError } from '../ai/errors';
+import type { AuthUser } from '../auth/current-user.decorator';
 import { PersonaService } from './persona.service';
 import { AvatarService } from './avatar.service';
 
@@ -44,7 +45,8 @@ export class SoulmateService {
    * DB 쓰기는 전부 마지막에 몰아서 한 트랜잭션(create_soulmate)으로 처리한다.
    * 실패 확률이 높은 건 AI 호출 쪽이라, 그게 끝난 뒤에 쓰면 중간에 깨진 행이 남지 않는다.
    */
-  async create(userId: string, answers: OnboardingAnswers): Promise<SoulmateResponse> {
+  async create(user: AuthUser, answers: OnboardingAnswers): Promise<SoulmateResponse> {
+    const userId = user.id;
     if (await this.findRow(userId)) {
       throw ApiException.alreadyClaimed('이미 소울메이트가 있어요.');
     }
@@ -116,7 +118,8 @@ export class SoulmateService {
    * 이미 아바타가 있으면 크레딧을 먼저 차감하고 실패하면 되돌린다.
    * (반대 순서면 응답만 받고 끊어서 공짜로 쓸 수 있다)
    */
-  async regenerateAvatar(userId: string, changeRequest?: string): Promise<SoulmateResponse> {
+  async regenerateAvatar(user: AuthUser, changeRequest?: string): Promise<SoulmateResponse> {
+    const userId = user.id;
     const row = await this.findRow(userId);
     if (!row) throw ApiException.notFound('소울메이트가 아직 없어요.');
 
@@ -135,6 +138,7 @@ export class SoulmateService {
           freeAllowance: 0,
           refType: 'soulmate',
           refId: row.id,
+          unlimited: user.isAdmin,
         });
 
     try {
@@ -179,6 +183,60 @@ export class SoulmateService {
     const updated = await this.get(userId);
     if (!updated) throw ApiException.internal();
     return updated;
+  }
+
+  /**
+   * 소울메이트를 지운다. 대화 기록까지 함께 사라지는 되돌릴 수 없는 작업이다.
+   *
+   * 지운 뒤에는 온보딩을 처음부터 다시 할 수 있다.
+   * 일반 사용자에게 재생성보다 비싼 값을 매기는 이유는,
+   * 지우고 다시 만들면 첫 아바타를 또 무료로 받기 때문이다.
+   */
+  async reset(user: AuthUser): Promise<void> {
+    const userId = user.id;
+    const row = await this.findRow(userId);
+    if (!row) throw ApiException.notFound('소울메이트가 아직 없어요.');
+
+    const spend = await this.credits.spend({
+      userId,
+      amount: CREDIT_COSTS.soulmateReset,
+      reason: 'soulmate_reset_spend',
+      freeAllowance: 0,
+      refType: 'soulmate',
+      refId: row.id,
+      unlimited: user.isAdmin,
+    });
+
+    // DB를 지우면 Storage 경로를 알 방법이 없어지므로 먼저 모아둔다.
+    const paths = await this.avatarPaths(row.id);
+
+    const { error } = await this.supabase.client.rpc('delete_soulmate', {
+      p_user: userId,
+      p_soulmate_id: row.id,
+    });
+
+    if (error) {
+      await this.credits.refund({
+        userId,
+        freeUsed: spend.freeUsed,
+        paidUsed: spend.paidUsed,
+        refType: 'soulmate',
+        refId: row.id,
+      });
+      this.logger.error(`delete_soulmate 실패 [${error.code}] ${error.message}`);
+      throw ApiException.internal();
+    }
+
+    // 이미지 파일은 FK cascade가 지워주지 않는다. 남겨두면 무료 1GB를 갉아먹는다.
+    // 여기서 실패해도 사용자 입장에서는 삭제가 끝난 것이므로 로그만 남긴다.
+    if (paths.length > 0) {
+      const { error: removeError } = await this.supabase.client.storage
+        .from('avatars')
+        .remove(paths);
+      if (removeError) {
+        this.logger.error(`아바타 파일 정리 실패 (${paths.length}건): ${removeError.message}`);
+      }
+    }
   }
 
   async get(userId: string): Promise<SoulmateResponse | null> {
@@ -236,6 +294,20 @@ export class SoulmateService {
       return null;
     }
     return data?.storage_path ?? null;
+  }
+
+  /** 소울메이트에 딸린 모든 아바타 파일 경로. 삭제 시 Storage 정리에 쓴다. */
+  private async avatarPaths(soulmateId: string): Promise<string[]> {
+    const { data, error } = await this.supabase.client
+      .from('soulmate_avatars')
+      .select('storage_path')
+      .eq('soulmate_id', soulmateId);
+
+    if (error) {
+      this.logger.error(`아바타 경로 목록 조회 실패 [${error.code}] ${error.message}`);
+      return [];
+    }
+    return (data ?? []).map((r: { storage_path: string }) => r.storage_path);
   }
 
   private async loadCurrentImage(avatarId: string) {

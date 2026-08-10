@@ -71,7 +71,14 @@ export function HomeClient() {
       <header className="flex items-center justify-between">
         <div>
           <p className="text-xs text-ink-soft dark:text-cream/50">반가워요</p>
-          <h1 className="text-xl font-semibold">{me.profile.displayName ?? '이름 없음'}</h1>
+          <h1 className="text-xl font-semibold">
+            {me.profile.displayName ?? '이름 없음'}
+            {me.isAdmin && (
+              <span className="ml-2 rounded-full bg-blush/15 px-2 py-0.5 align-middle text-[11px] font-normal text-blush-deep">
+                운영자
+              </span>
+            )}
+          </h1>
         </div>
         <button
           type="button"
@@ -100,7 +107,17 @@ export function HomeClient() {
 
       <div className="mt-6">
         {soulmate ? (
-          <SoulmateCard soulmate={soulmate} wallet={me.wallet} onUpdated={setSoulmate} />
+          <SoulmateCard
+            soulmate={soulmate}
+            wallet={me.wallet}
+            isAdmin={me.isAdmin}
+            onUpdated={setSoulmate}
+            // 지운 뒤에는 온보딩으로 보낸다. /me 를 다시 불러 지갑 잔액도 갱신한다.
+            onReset={() => {
+              setSoulmate(null);
+              router.push('/onboarding');
+            }}
+          />
         ) : me.hasSoulmate ? (
           <p className="text-[15px] text-ink-soft dark:text-cream/60">소울메이트를 불러오는 중…</p>
         ) : (
