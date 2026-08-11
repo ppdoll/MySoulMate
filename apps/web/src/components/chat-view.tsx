@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  EMOTION_ACCENT_VAR,
+  isExpression,
   parseEmotionTag,
   parseEmphasis,
   splitIntoBubbles,
@@ -140,6 +142,8 @@ export function ChatView() {
       role: 'user',
       content: text,
       createdAt: new Date().toISOString(),
+      // 사용자 메시지에는 감정 태그가 없다.
+      emotion: null,
     };
     stickToBottom.current = true;
     setMessages((prev) => [...prev, optimistic]);
@@ -164,6 +168,7 @@ export function ChatView() {
               role: 'assistant',
               content: body || accumulated,
               createdAt: new Date().toISOString(),
+              emotion: event.emotion,
             },
           ]);
           setWallet(event.wallet);
@@ -256,7 +261,7 @@ export function ChatView() {
           {messages.map((m) =>
             m.role === 'assistant' ? (
               splitIntoBubbles(m.content).map((part, i) => (
-                <Caption key={`${m.id}-${i}`} role="assistant" text={part} />
+                <Caption key={`${m.id}-${i}`} role="assistant" text={part} emotion={m.emotion} />
               ))
             ) : (
               <Caption key={m.id} role="user" text={m.content} />
@@ -264,7 +269,7 @@ export function ChatView() {
           )}
           {streaming &&
             splitIntoBubbles(streaming).map((part, i) => (
-              <Caption key={`s-${i}`} role="assistant" text={part} />
+              <Caption key={`s-${i}`} role="assistant" text={part} emotion={expression} />
             ))}
           {sending && !streaming && <Caption role="assistant" text="" pending />}
         </div>
@@ -327,10 +332,12 @@ function Caption({
   role,
   text,
   pending,
+  emotion,
 }: {
   role: 'user' | 'assistant';
   text: string;
   pending?: boolean;
+  emotion?: string | null;
 }) {
   const mine = role === 'user';
   return (
@@ -347,7 +354,7 @@ function Caption({
             <span>·</span>
           </span>
         ) : (
-          <Emphasized text={text} />
+          <Emphasized text={text} emotion={emotion} />
         )}
       </div>
     </div>
@@ -355,18 +362,22 @@ function Caption({
 }
 
 /**
- * 강조(`**...**`)를 굵게 그린다.
+ * 강조(`**...**`)를 굵게, 감정에 맞는 색으로 그린다.
+ *
+ * 색을 따로 지시하지 않고 이미 있는 감정 태그에서 파생시킨다.
+ * 모델에 색 문법을 가르치면 틀릴 여지가 생기고, 색이 내용과 어긋날 수 있다.
  *
  * 토큰을 받아 React 노드로 만들므로 dangerouslySetInnerHTML 이 필요 없다.
- * 모델이 무엇을 출력하든 주입이 일어나지 않는다.
  */
-function Emphasized({ text }: { text: string }) {
+function Emphasized({ text, emotion }: { text: string; emotion?: string | null }) {
   const tokens = parseEmphasis(text);
+  const color = isExpression(emotion) ? EMOTION_ACCENT_VAR[emotion] : undefined;
+
   return (
     <>
       {tokens.map((t, i) =>
         t.bold ? (
-          <strong key={i} className="font-semibold">
+          <strong key={i} className="font-semibold" style={color ? { color } : undefined}>
             {t.text}
           </strong>
         ) : (
@@ -403,7 +414,7 @@ function HistoryPanel({
           {messages.map((m) =>
             m.role === 'assistant' ? (
               splitIntoBubbles(m.content).map((part, i) => (
-                <HistoryBubble key={`${m.id}-${i}`} mine={false} text={part} />
+                <HistoryBubble key={`${m.id}-${i}`} mine={false} text={part} emotion={m.emotion} />
               ))
             ) : (
               <HistoryBubble key={m.id} mine text={m.content} />
@@ -416,7 +427,7 @@ function HistoryPanel({
   );
 }
 
-function HistoryBubble({ mine, text }: { mine: boolean; text: string }) {
+function HistoryBubble({ mine, text, emotion }: { mine: boolean; text: string; emotion?: string | null }) {
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -424,7 +435,7 @@ function HistoryBubble({ mine, text }: { mine: boolean; text: string }) {
           mine ? 'bg-blush text-white' : 'bg-white text-ink dark:bg-white/10 dark:text-cream'
         }`}
       >
-        {mine ? text : <Emphasized text={text} />}
+        {mine ? text : <Emphasized text={text} emotion={emotion} />}
       </div>
     </div>
   );

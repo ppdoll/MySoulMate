@@ -152,7 +152,7 @@ export type ChatStreamEvent =
   /** 토큰 조각. 프론트는 이어붙인다. */
   | { type: 'delta'; text: string }
   /** 정상 종료. 확정된 메시지 id와 차감 후 잔액을 함께 준다. */
-  | { type: 'done'; messageId: string; wallet: WalletState }
+  | { type: 'done'; messageId: string; wallet: WalletState; emotion: string }
   /** 스트림 도중 실패. 크레딧은 이미 환불된 상태다. */
   | { type: 'error'; code: ApiErrorCode; message: string; retryAfterSeconds?: number };
 
@@ -161,6 +161,11 @@ export interface ChatMessageDto {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  /**
+   * 이 응답의 감정. 강조 색을 정하는 데 쓴다.
+   * 사용자 메시지와, 감정 태그가 없던 시절의 옛 메시지는 null이다.
+   */
+  emotion: string | null;
 }
 
 export const SendMessageSchema = z.object({

@@ -21,6 +21,25 @@
 
 html {
   color-scheme: light dark;
+
+  /*
+    감정별 강조 색.
+    따뜻한 팔레트에 얹히므로 채도를 낮게 잡았다. 원색을 쓰면 화면이 시끄러워진다.
+  */
+  --accent-neutral: #b96f6f;
+  --accent-happy: #c8862c;
+  --accent-worried: #6f829b;
+  --accent-playful: #b06a9e;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    /* 어두운 배경에서는 같은 색이 가라앉아 안 읽힌다. 밝게 올린다. */
+    --accent-neutral: #eaa5a5;
+    --accent-happy: #e8bf72;
+    --accent-worried: #a8bcd6;
+    --accent-playful: #dda3cf;
+  }
 }
 
 body {

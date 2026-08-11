@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import {
   CREDIT_COSTS,
@@ -37,6 +37,7 @@ interface MessageRow {
   created_at: string;
   /** 삽입 순서. created_at 은 한 번의 INSERT 안에서 동일해 정렬 기준이 될 수 없다. */
   seq: number;
+  emotion: string | null;
 }
 
 interface ConversationContext {
@@ -120,12 +121,18 @@ export class ChatService {
         throw new ModelBlockedError('빈 응답');
       }
 
-      // 감정 태그는 표정 교체용이라 기록에는 남기지 않는다.
-      // 남겨두면 다음 턴 컨텍스트에 섞여 들어가고 화면에도 보인다.
-      const { rest } = parseEmotionTag(answer);
-      const messageId = await this.persistTurn(ctx.conversationId, text, rest.trim() || answer);
+      // 태그 자체는 본문에서 떼어낸다. 남겨두면 다음 턴 컨텍스트에 섞이고 화면에도 보인다.
+      // 다만 어떤 감정이었는지는 컬럼으로 저장한다 — 나중에 기록을 다시 그릴 때
+      // 강조 색을 입히려면 필요하다.
+      const { rest, expression } = parseEmotionTag(answer);
+      const messageId = await this.persistTurn(
+        ctx.conversationId,
+        text,
+        rest.trim() || answer,
+        expression,
+      );
       const wallet = await this.credits.getWallet(user.id);
-      yield { type: 'done', messageId, wallet };
+      yield { type: 'done', messageId, wallet, emotion: expression };
     } catch (err) {
       await this.credits.refund({
         userId: user.id,
@@ -146,7 +153,7 @@ export class ChatService {
 
     let query = this.supabase.client
       .from('messages')
-      .select('id, role, content, created_at, seq')
+      .select('id, role, content, created_at, seq, emotion')
       .eq('conversation_id', ctx.conversationId)
       .order('seq', { ascending: false })
       .limit(CONTEXT_MESSAGES + 1);
@@ -229,7 +236,7 @@ export class ChatService {
   private async recentMessages(conversationId: string, limit: number): Promise<MessageRow[]> {
     const { data, error } = await this.supabase.client
       .from('messages')
-      .select('id, role, content, created_at, seq')
+      .select('id, role, content, created_at, seq, emotion')
       .eq('conversation_id', conversationId)
       .order('seq', { ascending: false })
       .limit(limit);
@@ -251,12 +258,13 @@ export class ChatService {
     conversationId: string,
     userText: string,
     answer: string,
+    emotion: string,
   ): Promise<string> {
     const { data, error } = await this.supabase.client
       .from('messages')
       .insert([
-        { conversation_id: conversationId, role: 'user', content: userText },
-        { conversation_id: conversationId, role: 'assistant', content: answer },
+        { conversation_id: conversationId, role: 'user', content: userText, emotion: null },
+        { conversation_id: conversationId, role: 'assistant', content: answer, emotion },
       ])
       .select('id, role');
 
@@ -427,5 +435,6 @@ function toDto(row: MessageRow): ChatMessageDto {
     role: row.role,
     content: row.content,
     createdAt: row.created_at,
+    emotion: row.emotion,
   };
 }

@@ -74,6 +74,26 @@ export const EMOTION_TAGS: Record<string, Expression> = {
 
 export const EMOTION_TAG_NAMES = Object.keys(EMOTION_TAGS);
 
+/**
+ * 감정별 강조 색.
+ *
+ * 색을 따로 지시하지 않고 이미 있는 감정 태그에 묶는 이유:
+ * 모델에 새 문법을 하나 더 가르치면 틀릴 여지가 생기고,
+ * 색이 내용과 어긋난 채 출력될 수 있다. 감정에서 파생하면 그럴 수 없다.
+ *
+ * 실제 색값은 globals.css 의 CSS 변수로 두어 다크 모드에서 따로 조절한다.
+ */
+export const EMOTION_ACCENT_VAR: Record<Expression, string> = {
+  neutral: 'var(--accent-neutral)',
+  happy: 'var(--accent-happy)',
+  worried: 'var(--accent-worried)',
+  playful: 'var(--accent-playful)',
+};
+
+export function isExpression(value: unknown): value is Expression {
+  return typeof value === 'string' && (EXPRESSIONS as readonly string[]).includes(value);
+}
+
 /** 정적 자원 경로. Vercel CDN이 서빙하므로 런타임 비용이 없다. */
 export function presetImagePath(id: PresetId, expression: Expression): string {
   return `/presets/${id}/${expression}.webp`;
