@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import {
   CREDIT_COSTS,
+  CompressionSchema,
+  MEMORY_RECALL_LIMIT,
+  MEMORY_STORE_LIMIT,
   PersonaSchema,
   parseEmotionTag,
+  type MemoryItem,
   type ChatHistoryResponse,
   type ChatMessageDto,
   type ChatStreamEvent,
@@ -15,7 +19,7 @@ import { GeminiService } from '../ai/gemini.service';
 import { ApiException } from '../common/api-exception';
 import { ModelBlockedError, ModelRateLimitedError } from '../ai/errors';
 import type { AuthUser } from '../auth/current-user.decorator';
-import { SUMMARY_SYSTEM_PROMPT, buildChatSystemPrompt, buildTimeContext } from './prompt';
+import { COMPRESSION_SYSTEM_PROMPT, buildChatSystemPrompt, buildTimeContext } from './prompt';
 
 /** 원문 그대로 모델에 넘길 최근 메시지 수. 늘리면 매 턴 입력 토큰이 그만큼 늘어난다. */
 const CONTEXT_MESSAGES = 20;
@@ -83,17 +87,22 @@ export class ChatService {
 
     let answer = '';
     try {
-      // 임계치를 넘었으면 여기서 한 번 압축한다.
+      // 임계치를 넘었으면 여기서 한 번 압축한다(요약 + 기억 추출).
       // 20턴에 한 번 이 턴만 조금 느려지고, 이후 입력 토큰이 다시 줄어든다.
-      const summary = await this.maybeSummarize(ctx);
+      const summary = await this.maybeCompress(ctx);
 
-      const history = await this.recentMessages(ctx.conversationId, CONTEXT_MESSAGES);
+      const [history, memories] = await Promise.all([
+        this.recentMessages(ctx.conversationId, CONTEXT_MESSAGES),
+        this.recallMemories(ctx.soulmateId),
+      ]);
+
       const system = buildChatSystemPrompt({
         persona: ctx.persona,
         tone: ctx.tone,
         summary,
         userName: ctx.userName,
         timeContext: buildTimeContext(new Date(), ctx.lastMessageAt),
+        memories,
       });
 
       for await (const delta of this.gemini.streamChat({
@@ -261,12 +270,41 @@ export class ChatService {
   }
 
   /**
+   * 프롬프트에 넣을 기억.
+   *
+   * 중요한 것부터, 같은 중요도면 최근 것부터 가져온다.
+   * pgvector 로 관련성 검색을 하는 건 다음 단계다 — 기억이 수십 개 수준이면
+   * 전부 넣는 것과 골라 넣는 것의 차이가 크지 않다.
+   */
+  private async recallMemories(
+    soulmateId: string,
+  ): Promise<{ kind: string; content: string }[]> {
+    const { data, error } = await this.supabase.client
+      .from('memories')
+      .select('kind, content')
+      .eq('soulmate_id', soulmateId)
+      .order('importance', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(MEMORY_RECALL_LIMIT);
+
+    if (error) {
+      // 기억을 못 불러와도 대화는 되어야 한다.
+      this.logger.warn(`기억 조회 실패 [${error.code}] ${error.message}`);
+      return [];
+    }
+    return (data ?? []) as { kind: string; content: string }[];
+  }
+
+  /**
    * 요약이 필요하면 만들고, 아니면 기존 요약을 그대로 돌려준다.
+   *
+   * 같은 호출에서 기억도 함께 추출한다. 창에서 밀려나는 메시지를 읽는 건
+   * 두 작업이 같으므로, 따로 부르면 같은 입력을 두 번 읽히게 된다.
    *
    * 오래된 메시지를 지우지는 않는다 — 기록은 사용자의 것이고,
    * 컨텍스트에 넣지 않을 뿐이다.
    */
-  private async maybeSummarize(ctx: ConversationContext): Promise<string> {
+  private async maybeCompress(ctx: ConversationContext): Promise<string> {
     const { count, error } = await this.supabase.client
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -287,13 +325,20 @@ export class ChatService {
       .map((m) => `${m.role === 'user' ? '사용자' : ctx.persona.name}: ${m.content}`)
       .join('\n');
 
+    // 이미 아는 것을 함께 넘겨 중복을 막는다.
+    const known = await this.recallMemories(ctx.soulmateId);
+
     try {
       const result = await this.gemini.generateJson({
-        system: SUMMARY_SYSTEM_PROMPT,
-        prompt: ctx.summary
-          ? `# 기존 요약\n${ctx.summary}\n\n# 새로 합칠 대화\n${transcript}`
-          : `# 대화\n${transcript}`,
-        schema: z.object({ summary: z.string().min(1).max(600) }),
+        system: COMPRESSION_SYSTEM_PROMPT,
+        prompt: [
+          ctx.summary ? `# 기존 요약\n${ctx.summary}` : '',
+          known.length ? `# 이미 알고 있는 것\n${known.map((m) => `- ${m.content}`).join('\n')}` : '',
+          `# 정리할 대화\n${transcript}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+        schema: CompressionSchema,
         retries: 0,
       });
 
@@ -302,13 +347,49 @@ export class ChatService {
         .update({ summary: result.summary })
         .eq('id', ctx.conversationId);
 
+      await this.storeMemories(ctx.soulmateId, result.memories);
+
       return result.summary;
     } catch (err) {
-      // 요약 실패로 대화 자체를 막을 이유는 없다. 기존 요약으로 계속 간다.
+      // 압축 실패로 대화 자체를 막을 이유는 없다. 기존 요약으로 계속 간다.
       this.logger.warn(
-        `요약 실패, 기존 요약 유지: ${err instanceof Error ? err.message : String(err)}`,
+        `압축 실패, 기존 요약 유지: ${err instanceof Error ? err.message : String(err)}`,
       );
       return ctx.summary;
+    }
+  }
+
+  /**
+   * 추출한 기억을 저장하고 오래된 것을 정리한다.
+   *
+   * 상한을 두는 이유: 지난 일("발표가 있다" -> 이미 끝남)이 계속 쌓이면
+   * 프롬프트가 낡은 사실로 채워진다. 지금은 오래된 것부터 밀어내는 방식으로만 처리한다.
+   * (끝난 일을 알아보고 지우는 건 다음 단계다)
+   */
+  private async storeMemories(soulmateId: string, items: MemoryItem[]): Promise<void> {
+    if (items.length === 0) return;
+
+    const { error } = await this.supabase.client.from('memories').insert(
+      items.map((m) => ({
+        soulmate_id: soulmateId,
+        kind: m.kind,
+        content: m.content,
+        importance: m.importance,
+      })),
+    );
+
+    if (error) {
+      this.logger.warn(`기억 저장 실패 [${error.code}] ${error.message}`);
+      return;
+    }
+    this.logger.log(`기억 ${items.length}건 저장 (soulmate=${soulmateId})`);
+
+    const { error: pruneError } = await this.supabase.client.rpc('prune_memories', {
+      p_soulmate_id: soulmateId,
+      p_keep: MEMORY_STORE_LIMIT,
+    });
+    if (pruneError) {
+      this.logger.warn(`기억 정리 실패 [${pruneError.code}] ${pruneError.message}`);
     }
   }
 

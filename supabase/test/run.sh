@@ -138,5 +138,8 @@ psql_run -f "$ROOT/supabase/test/05_message_order.sql"
 echo "==> 검증 (무료 쿼터)"
 psql_run -f "$ROOT/supabase/test/06_free_quota.sql"
 
+echo "==> 검증 (장기 기억)"
+psql_run -f "$ROOT/supabase/test/07_memories.sql"
+
 echo
 echo "완료."

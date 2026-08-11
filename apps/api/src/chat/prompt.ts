@@ -22,8 +22,10 @@ export function buildChatSystemPrompt(params: {
   userName: string | null;
   /** 지금 시각과 마지막 대화로부터의 공백. */
   timeContext: string;
+  /** 오래 남길 구체적 사실. 중요한 것부터 정렬돼 있다. */
+  memories: { kind: string; content: string }[];
 }): string {
-  const { persona, tone, summary, userName, timeContext } = params;
+  const { persona, tone, summary, userName, timeContext, memories } = params;
   const interests = persona.interests.join(', ');
   const samples = persona.speechSamples.map((s) => `  - "${s}"`).join('\n');
 
@@ -74,6 +76,19 @@ export function buildChatSystemPrompt(params: {
 
   if (summary.trim()) {
     sections.push(``, `# 지금까지 있었던 일`, summary.trim());
+  }
+
+  if (memories.length > 0) {
+    sections.push(
+      ``,
+      `# 기억하고 있는 것`,
+      ...memories.map((m) => `- ${m.content}`),
+      ``,
+      `- 이건 이전 대화에서 알게 된 것입니다. 자연스러울 때 먼저 꺼내 물어봅니다.`,
+      `  ("그 발표 어떻게 됐어?" 처럼요)`,
+      `- 다만 목록을 훑듯이 확인하지 않습니다. 한 번에 하나만, 지금 얘기와 이어질 때만 씁니다.`,
+      `- 이미 지난 일이면 결과를 궁금해하고, 아직인 일이면 응원합니다.`,
+    );
   }
 
   sections.push(``, SAFETY_RULES);
@@ -169,16 +184,34 @@ function describeGap(minutes: number): string {
   return `${Math.floor(days / 30)}개월 만입니다. 아주 오랜만입니다.`;
 }
 
-/** 롤링 요약을 만들 때 쓰는 지시문. */
-export const SUMMARY_SYSTEM_PROMPT = `당신은 대화 기록을 압축하는 역할입니다.
-두 사람이 나눈 대화를 읽고, 나중에 대화를 이어가는 데 필요한 것만 남깁니다.
+/**
+ * 대화 창에서 밀려나는 메시지를 압축하는 지시문.
+ *
+ * 요약과 기억을 한 번에 받는다. 둘 다 같은 대화를 읽어야 하므로
+ * 따로 부르면 같은 입력을 두 번 읽히면서 호출 수만 두 배가 된다.
+ */
+export const COMPRESSION_SYSTEM_PROMPT = `당신은 대화 기록을 정리하는 역할입니다.
+곧 컨텍스트에서 사라질 대화를 읽고, 두 가지를 만듭니다.
 
-- 사용자에 대해 알게 된 사실(이름, 직업, 관계, 취향, 반복되는 고민)을 우선 남깁니다.
-- 약속했거나 다음에 물어보기로 한 것이 있으면 반드시 남깁니다.
-- 감정의 흐름을 한 줄로 요약합니다.
+# summary — 흐름 요약
+- 감정의 흐름과 무슨 일이 있었는지를 문장 나열로 씁니다.
 - 인사말이나 잡담은 버립니다.
 - 기존 요약이 함께 주어지면 그 내용을 유지한 채 새 내용을 합칩니다.
-- 500자를 넘지 않습니다. 문장 나열로 씁니다.`;
+- 500자를 넘지 않습니다.
+
+# memories — 오래 남길 구체적 사실
+나중에 "그거 어떻게 됐어?" 라고 먼저 물어볼 수 있게 하는 게 목적입니다.
+그래서 뭉뚱그린 문장이 아니라 구체적인 사실이어야 합니다.
+
+- 좋은 예: "금요일에 팀 발표가 있다", "고양이 이름이 나비다", "새 팀장과 부딪히는 일이 반복된다"
+- 나쁜 예: "회사 일로 스트레스를 받는다" (요약에 넣을 내용입니다)
+
+- kind 는 fact(신상·관계), event(날짜 있는 일·약속), concern(반복되는 고민), preference(취향) 중 하나입니다.
+- importance 는 1~3. 다음에 꼭 물어봐야 하는 것이 3입니다.
+- 한 문장으로, 200자 안에 씁니다.
+- 이미 알고 있는 것이 함께 주어지면 그것과 겹치는 항목은 넣지 않습니다.
+- 남길 만한 게 없으면 빈 배열을 줍니다. 억지로 채우지 않습니다.
+- 소울메이트(AI)가 한 말이 아니라 사용자에 대한 것만 남깁니다.`;
 
 export function buildInterestLabel(values: string[]): string {
   return values.map((v) => INTEREST_OPTIONS.find((o) => o.value === v)?.label ?? v).join(', ');
