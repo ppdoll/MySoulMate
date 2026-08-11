@@ -85,8 +85,13 @@ export const PersonaSchema = z.object({
   /** 성격 키워드. UI에 태그로 노출된다. 어미는 하나로 통일한다. */
   traits: z.array(z.string().min(1).max(20)).min(3).max(6),
   speechStyle: z.enum(SPEECH_STYLES),
-  /** 말투 예시 문장. 시스템 프롬프트에서 few-shot 역할을 한다. */
-  speechSamples: z.array(z.string().min(1).max(120)).min(2).max(4),
+  /**
+   * 말투 예시 문장. 시스템 프롬프트에서 few-shot 역할을 한다.
+   *
+   * 길이 상한이 곧 대화 응답의 길이를 결정한다.
+   * 예시가 전부 짧으면 모델이 그 길이를 따라가서, 지시문으로 "길게 쓰라" 고 해도 잘 안 늘어난다.
+   */
+  speechSamples: z.array(z.string().min(1).max(250)).min(2).max(4),
   /** 짧은 배경 설정. 대화에 일관성을 준다. */
   backstory: z.string().min(1).max(600),
   interests: z.array(z.string().min(1).max(24)).min(2).max(6),
