@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   parseEmotionTag,
+  parseEmphasis,
   splitIntoBubbles,
   type ChatHistoryResponse,
   type ChatMessageDto,
@@ -346,10 +347,33 @@ function Caption({
             <span>·</span>
           </span>
         ) : (
-          text
+          <Emphasized text={text} />
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 강조(`**...**`)를 굵게 그린다.
+ *
+ * 토큰을 받아 React 노드로 만들므로 dangerouslySetInnerHTML 이 필요 없다.
+ * 모델이 무엇을 출력하든 주입이 일어나지 않는다.
+ */
+function Emphasized({ text }: { text: string }) {
+  const tokens = parseEmphasis(text);
+  return (
+    <>
+      {tokens.map((t, i) =>
+        t.bold ? (
+          <strong key={i} className="font-semibold">
+            {t.text}
+          </strong>
+        ) : (
+          <span key={i}>{t.text}</span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -400,7 +424,7 @@ function HistoryBubble({ mine, text }: { mine: boolean; text: string }) {
           mine ? 'bg-blush text-white' : 'bg-white text-ink dark:bg-white/10 dark:text-cream'
         }`}
       >
-        {text}
+        {mine ? text : <Emphasized text={text} />}
       </div>
     </div>
   );

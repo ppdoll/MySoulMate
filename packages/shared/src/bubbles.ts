@@ -25,13 +25,23 @@ export function splitIntoBubbles(text: string): string[] {
 
   const segments: string[] = [];
   let current = '';
+  /**
+   * 강조(`**...**`) 안에서는 끊지 않는다.
+   * 가르면 양쪽 풍선에 짝 없는 마커가 남아 `**` 가 그대로 보인다.
+   */
+  let inEmphasis = false;
 
   for (let i = 0; i < trimmed.length; i++) {
     const ch = trimmed[i]!;
     current += ch;
 
+    if (ch === '*' && trimmed[i - 1] === '*') {
+      inEmphasis = !inEmphasis;
+    }
+
     // 마지막 풍선에는 남은 걸 전부 담는다.
     if (segments.length >= MAX_BUBBLES - 1) continue;
+    if (inEmphasis) continue;
 
     const next = trimmed[i + 1];
 
