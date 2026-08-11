@@ -15,14 +15,26 @@ import { z } from 'zod';
  * undefined가 아니라 ''로 들어온다. .optional()은 undefined만 허용하므로
  * 그대로 두면 "비워두라"고 안내한 변수가 기동을 막는다.
  */
-const optionalSecret = z.preprocess(
-  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
-  z.string().min(1).optional(),
-);
+const blankToUndefined = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v;
+
+const optionalSecret = z.preprocess(blankToUndefined, z.string().min(1).optional());
+
+/**
+ * 비워둘 수 있는 정수.
+ *
+ * z.coerce.number() 는 '' 를 0 으로 바꿔버린다.
+ * 그래서 빈 값 처리를 뒤쪽 분기(.or)에 두면 아예 도달하지 않고,
+ * "비워두면 기본값" 이 "비워두면 0" 이 된다.
+ * 반드시 coerce 앞에서 undefined 로 정규화해야 한다.
+ */
+const optionalInt = (min: number) =>
+  z.preprocess(blankToUndefined, z.coerce.number().int().min(min).optional());
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3001),
+  // 빈 값이면 기본값을 쓴다. coerce 앞에서 정규화하지 않으면 ''가 0으로 바뀐다.
+  PORT: z.preprocess(blankToUndefined, z.coerce.number().int().positive().default(3001)),
 
   /** 허용할 프론트 오리진. 쉼표로 여러 개(프리뷰 배포용). */
   WEB_ORIGIN: z.string().min(1),
@@ -88,6 +100,15 @@ const EnvSchema = z.object({
    * 사용자가 스스로를 운영자로 만들 수 없어야 한다.
    */
   ADMIN_EMAILS: optionalSecret,
+
+  /**
+   * 하루 무료 대화 턴 수. 비우면 packages/shared 의 기본값(30)을 쓴다.
+   *
+   * 환경변수로 빼두는 이유가 둘이다.
+   * - 테스트: 30턴을 다 태워봐야 소진 화면을 확인할 수 있는데, 2로 낮추면 세 번이면 된다.
+   * - 운영: 실측 비용을 보고 조정해야 하는 값이다. 코드 배포 없이 바꿀 수 있어야 한다.
+   */
+  FREE_DAILY_CHAT_TURNS: optionalInt(0),
 
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
   VERCEL_GIT_COMMIT_SHA: optionalSecret,

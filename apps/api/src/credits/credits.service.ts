@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import type { PostgrestError } from '@supabase/supabase-js';
-import { FREE_DAILY_CHAT_TURNS, type CreditReason, type WalletState } from '@mysoulmate/shared';
+import type { CreditReason, WalletState } from '@mysoulmate/shared';
+import { AppConfig } from '../config/app-config';
 import { SupabaseService } from '../supabase/supabase.module';
 import { ApiException } from '../common/api-exception';
 
@@ -38,12 +39,32 @@ export interface SpendResult {
 export class CreditsService {
   private readonly logger = new Logger(CreditsService.name);
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly config: AppConfig,
+  ) {}
 
   async getWallet(userId: string): Promise<WalletState> {
     const { data, error } = await this.supabase.client.rpc('get_wallet', { p_user: userId });
     this.rethrow(error, 'get_wallet');
-    return toWalletState(data as WalletRow);
+    return this.toWalletState(data as WalletRow);
+  }
+
+  /** 하루 무료 대화 턴 수. 호출부가 spend 에 넘기는 값과 같아야 한다. */
+  get freeDailyChatTurns(): number {
+    return this.config.freeDailyChatTurns;
+  }
+
+  /**
+   * 남은 무료 턴은 여기서만 계산한다.
+   * DB는 사용량(free_used_today)만 들고 있고 허용량의 출처는 설정이다.
+   */
+  private toWalletState(row: WalletRow): WalletState {
+    return {
+      balance: row.balance,
+      freeTurnsRemaining: Math.max(this.config.freeDailyChatTurns - row.free_used_today, 0),
+      freeResetAt: row.free_reset_at,
+    };
   }
 
   /**
@@ -95,7 +116,7 @@ export class CreditsService {
     return {
       freeUsed: row.free_used,
       paidUsed: row.paid_used,
-      wallet: toWalletState(row),
+      wallet: this.toWalletState(row),
     };
   }
 
@@ -149,7 +170,7 @@ export class CreditsService {
       p_ref_id: params.refId ?? null,
     });
     this.rethrow(error, 'grant_credits');
-    return toWalletState(data as WalletRow);
+    return this.toWalletState(data as WalletRow);
   }
 
   /**
@@ -175,7 +196,7 @@ export class CreditsService {
     this.rethrow(error, 'claim_mission');
 
     const row = data as { granted: number; wallet: WalletRow };
-    return { granted: row.granted, wallet: toWalletState(row.wallet) };
+    return { granted: row.granted, wallet: this.toWalletState(row.wallet) };
   }
 
   private rethrow(error: PostgrestError | null, fn: string): void {
@@ -185,14 +206,3 @@ export class CreditsService {
   }
 }
 
-/**
- * 남은 무료 턴은 여기서만 계산한다.
- * DB는 사용량(free_used_today)만 들고 있고 허용량의 출처는 packages/shared다.
- */
-function toWalletState(row: WalletRow): WalletState {
-  return {
-    balance: row.balance,
-    freeTurnsRemaining: Math.max(FREE_DAILY_CHAT_TURNS - row.free_used_today, 0),
-    freeResetAt: row.free_reset_at,
-  };
-}

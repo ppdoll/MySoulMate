@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import {
   CREDIT_COSTS,
-  FREE_DAILY_CHAT_TURNS,
   PersonaSchema,
   parseEmotionTag,
   type ChatHistoryResponse,
@@ -74,7 +73,9 @@ export class ChatService {
       userId: user.id,
       amount: CREDIT_COSTS.chatTurn,
       reason: 'chat_spend',
-      freeAllowance: FREE_DAILY_CHAT_TURNS,
+      // 표시용 잔여를 계산하는 값과 반드시 같아야 한다.
+      // 어긋나면 "남은 5" 인데 차감이 거절되는 식이 된다.
+      freeAllowance: this.credits.freeDailyChatTurns,
       refType: 'conversation',
       refId: ctx.conversationId,
       unlimited: user.isAdmin,

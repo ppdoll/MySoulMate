@@ -1,4 +1,5 @@
 import { Global, Injectable, Module } from '@nestjs/common';
+import { FREE_DAILY_CHAT_TURNS } from '@mysoulmate/shared';
 import { loadEnv, type Env } from './env';
 
 @Injectable()
@@ -56,6 +57,11 @@ export class AppConfig {
       .split(',')
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
+  }
+
+  /** 하루 무료 대화 턴 수. 환경변수가 없으면 shared 기본값. */
+  get freeDailyChatTurns(): number {
+    return this.env.FREE_DAILY_CHAT_TURNS ?? FREE_DAILY_CHAT_TURNS;
   }
 
   isAdmin(email: string | null): boolean {

@@ -135,5 +135,8 @@ psql_run -f "$ROOT/supabase/test/04_soulmate.sql"
 echo "==> 검증 (메시지 순서)"
 psql_run -f "$ROOT/supabase/test/05_message_order.sql"
 
+echo "==> 검증 (무료 쿼터)"
+psql_run -f "$ROOT/supabase/test/06_free_quota.sql"
+
 echo
 echo "완료."
