@@ -32,6 +32,8 @@ interface MessageRow {
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  /** 삽입 순서. created_at 은 한 번의 INSERT 안에서 동일해 정렬 기준이 될 수 없다. */
+  seq: number;
 }
 
 interface ConversationContext {
@@ -134,13 +136,15 @@ export class ChatService {
 
     let query = this.supabase.client
       .from('messages')
-      .select('id, role, content, created_at')
+      .select('id, role, content, created_at, seq')
       .eq('conversation_id', ctx.conversationId)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
+      .order('seq', { ascending: false })
       .limit(CONTEXT_MESSAGES + 1);
 
-    if (before) query = query.lt('created_at', before);
+    // 커서는 seq 값이다. 시각으로 나누면 같은 순간에 저장된 메시지에서
+    // 누락이나 중복이 생긴다.
+    const cursor = before ? Number.parseInt(before, 10) : Number.NaN;
+    if (Number.isFinite(cursor)) query = query.lt('seq', cursor);
 
     const { data, error } = await query;
     if (error) {
@@ -151,11 +155,13 @@ export class ChatService {
     const rows = (data ?? []) as MessageRow[];
     const hasMore = rows.length > CONTEXT_MESSAGES;
     const page = hasMore ? rows.slice(0, CONTEXT_MESSAGES) : rows;
+    const oldest = page[page.length - 1];
 
     return {
       // 조회는 최신순이지만 화면은 오래된 것부터 그린다.
-      messages: page.reverse().map(toDto),
+      messages: page.slice().reverse().map(toDto),
       hasMore,
+      nextCursor: hasMore && oldest ? String(oldest.seq) : null,
     };
   }
 
@@ -213,10 +219,9 @@ export class ChatService {
   private async recentMessages(conversationId: string, limit: number): Promise<MessageRow[]> {
     const { data, error } = await this.supabase.client
       .from('messages')
-      .select('id, role, content, created_at')
+      .select('id, role, content, created_at, seq')
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
+      .order('seq', { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -226,7 +231,12 @@ export class ChatService {
     return ((data ?? []) as MessageRow[]).reverse();
   }
 
-  /** 사용자 메시지와 응답을 한 번에 넣는다. 하나의 INSERT 라 둘 중 하나만 남는 일이 없다. */
+  /**
+   * 사용자 메시지와 응답을 한 번에 넣는다. 하나의 INSERT 라 둘 중 하나만 남는 일이 없다.
+   *
+   * 배열 순서대로 seq 가 매겨지므로 질문이 먼저, 응답이 나중이 된다.
+   * created_at 은 두 행이 동일하다(now() 는 트랜잭션 시작 시각) — 정렬에 쓰면 안 된다.
+   */
   private async persistTurn(
     conversationId: string,
     userText: string,
@@ -267,8 +277,7 @@ export class ChatService {
       .from('messages')
       .select('role, content')
       .eq('conversation_id', ctx.conversationId)
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true })
+      .order('seq', { ascending: true })
       .limit(SUMMARY_BATCH);
 
     if (fetchError || !data?.length) return ctx.summary;

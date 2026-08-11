@@ -174,4 +174,11 @@ export interface ChatHistoryResponse {
   messages: ChatMessageDto[];
   /** 더 위로 불러올 게 남았는지. */
   hasMore: boolean;
+  /**
+   * 다음 페이지를 요청할 때 `?before=` 로 그대로 돌려보내는 값.
+   *
+   * 내용은 서버 사정이므로 클라이언트가 해석하지 않는다.
+   * (시각으로 페이지를 나누면 같은 순간에 저장된 메시지에서 누락이나 중복이 생긴다)
+   */
+  nextCursor: string | null;
 }

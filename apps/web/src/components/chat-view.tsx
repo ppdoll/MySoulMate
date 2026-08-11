@@ -38,7 +38,7 @@ export function ChatView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const historyBottomRef = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export function ChatView() {
       setIsAdmin(me.isAdmin);
       setSoulmate(sm);
       setMessages(history.messages);
-      setHasMore(history.hasMore);
+      setCursor(history.nextCursor);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'unauthorized') return router.replace('/');
       if (err instanceof ApiError && err.code === 'not_found') return router.replace('/onboarding');
@@ -95,18 +95,17 @@ export function ChatView() {
    */
   const loadOlder = useCallback(async () => {
     const el = scrollRef.current;
-    const oldest = messages[0];
-    if (!el || !oldest || !hasMore || loadingMore) return;
+    if (!el || !cursor || loadingMore) return;
 
     setLoadingMore(true);
     const before = el.scrollHeight;
     try {
       const page = await apiFetch<ChatHistoryResponse>(
-        `/chat/messages?before=${encodeURIComponent(oldest.createdAt)}`,
+        `/chat/messages?before=${encodeURIComponent(cursor)}`,
       );
       stickToBottom.current = false;
       setMessages((prev) => [...page.messages, ...prev]);
-      setHasMore(page.hasMore);
+      setCursor(page.nextCursor);
 
       // 렌더 후 높이 차이만큼 보정한다.
       requestAnimationFrame(() => {
@@ -117,7 +116,7 @@ export function ChatView() {
     } finally {
       setLoadingMore(false);
     }
-  }, [messages, hasMore, loadingMore]);
+  }, [cursor, loadingMore]);
 
   function onScroll() {
     const el = scrollRef.current;
@@ -248,7 +247,7 @@ export function ChatView() {
       >
         {/* min-h-full + justify-end: 대화가 짧으면 아래에 붙고, 길어지면 위로 스크롤된다. */}
         <div className="flex min-h-full flex-col justify-end gap-2">
-          {hasMore && (
+          {cursor && (
             <p className="py-2 text-center text-xs text-white/60">
               {loadingMore ? '불러오는 중…' : '위로 올리면 지난 대화가 나와요'}
             </p>

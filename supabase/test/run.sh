@@ -132,5 +132,8 @@ psql_run -f "$ROOT/supabase/test/03_assert.sql"
 echo "==> 검증 (소울메이트 생성 트랜잭션)"
 psql_run -f "$ROOT/supabase/test/04_soulmate.sql"
 
+echo "==> 검증 (메시지 순서)"
+psql_run -f "$ROOT/supabase/test/05_message_order.sql"
+
 echo
 echo "완료."
