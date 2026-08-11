@@ -39,10 +39,78 @@ chic/     neutral.png  happy.png  worried.png  playful.png
 ## 규격
 
 - 상반신 정면, 얼굴이 위쪽 1/3에 오도록
-- 배경은 단색이나 아주 단순하게. 4장이 동일해야 한다
+- 배경은 단색. 분위기는 배경 **색으로만** 준다 (소품이 있으면 표정 편집할 때 흔들린다)
 - 정사각형 1024×1024
 - PNG로 저장 (WebP 변환은 스크립트가 한다)
 - 선정적이지 않게, 성인의 모습으로
+
+## 화풍은 코드와 같아야 한다
+
+AI로 생성하는 아바타와 같은 화풍이어야 한다. 유료로 "나만의 모습" 을 만든 순간
+화풍이 달라지면 같은 서비스로 보이지 않는다.
+
+기준 문자열은 `packages/shared/src/art-style.ts` 의 `ART_STYLE_PROMPT` 하나뿐이다.
+아래는 그걸 그대로 옮긴 것이고, 바꿀 일이 있으면 **그 파일을 고치고 여기도 맞춰야 한다.**
+
+```
+Soft Korean webtoon illustration style. Clean confident line art,
+gentle cel shading with soft gradients, warm muted color palette,
+delicate expressive facial features. Not photorealistic, not 3D render.
+No text, no watermark, no signature.
+```
+
+## 캐릭터별 프롬프트
+
+### 1단계 — 기본(neutral) 4장
+
+| 폴더 | 성별 | 배경색 |
+| --- | --- | --- |
+| `bright` | 여성 | 밝은 크림 |
+| `warm` | 남성 | 따뜻한 베이지 |
+| `calm` | 여성 | 차분한 회청색 |
+| `chic` | 남성 | 짙은 차콜 |
+
+```
+Upper-body portrait of an adult woman in her late twenties, facing the viewer.
+Square 1:1 composition, head in the upper third of the frame,
+hands visible at chest level in a relaxed natural pose.
+Mood: bright and fresh — light airy styling, open friendly presence.
+Background: a single flat pale cream color, completely plain, no props, no pattern.
+An adult, tasteful and fully clothed.
+Soft Korean webtoon illustration style. Clean confident line art,
+gentle cel shading with soft gradients, warm muted color palette,
+delicate expressive facial features. Not photorealistic, not 3D render.
+No text, no watermark, no signature.
+```
+
+캐릭터마다 `woman`/`man`, `Mood:`, `Background:` 세 줄만 바꾼다.
+
+- `warm` — `Mood: warm and comforting — soft knit textures, gentle presence.` / `flat warm beige`
+- `calm` — `Mood: composed and intelligent — neat tailored styling, quiet confidence.` / `flat muted blue-grey`
+- `chic` — `Mood: sharp and urban — monochrome styling, cool composed presence.` / `flat deep charcoal`
+
+### 2단계 — 표정 3장
+
+**1단계 이미지를 첨부**하고 아래를 넣는다.
+
+```
+Keep the exact same character from the provided image: same face, same hairstyle,
+same clothing, same background color, same framing, same art style.
+Change ONLY the facial expression and hand gesture to:
+<표정>
+```
+
+`<표정>` 자리:
+
+- **happy** — `a bright genuine smile, eyes slightly narrowed with joy, one hand raised near the shoulder in a small cheerful wave`
+- **worried** — `a gentle concerned expression, brows slightly drawn together, one hand lightly resting on own chest in empathy`
+- **playful** — `a mischievous grin, one eye winking, one hand near the cheek making a small playful gesture`
+
+세 장 모두 **1단계 이미지에서** 편집한다. happy 결과에서 worried를 만들면 어긋남이 누적된다.
+
+손은 이미지 모델이 가장 자주 망치는 부분이다(손가락 개수, 뒤틀림). 감정 전달에는
+도움이 되지만 몇 번 다시 뽑아야 할 수 있다. 잘 안 나오면 `hands visible at chest level`
+을 빼고 표정만으로 가도 된다 — 코드는 상관하지 않는다.
 
 ## 변환
 

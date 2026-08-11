@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
-import type { Appearance, Persona } from '@mysoulmate/shared';
+import {
+  ART_STYLE_PROMPT,
+  FIGURE_COMPOSITION_PROMPT,
+  type Appearance,
+  type Persona,
+} from '@mysoulmate/shared';
 import { GeminiService, type ImageInput } from '../ai/gemini.service';
 import { SupabaseService } from '../supabase/supabase.module';
 import { ModelUnavailableError } from '../ai/errors';
@@ -112,10 +117,12 @@ function buildImagePrompt(params: {
     // 편집 모드. 인물 동일성을 명시적으로 못박지 않으면 모델이 얼굴을 바꿔버린다.
     const change = params.changeRequest?.trim() || 'a different pose and outfit, same setting';
     return [
-      'Keep the exact same person from the provided image:',
-      'same face, same facial features, same hair color and style, same apparent age.',
+      'Keep the exact same character from the provided image:',
+      'same face, same facial features, same hair color and style, same apparent age,',
+      'same art style.',
       `Change only: ${change}.`,
-      'Upper-body portrait, photorealistic, natural lighting, tasteful and fully clothed.',
+      FIGURE_COMPOSITION_PROMPT,
+      ART_STYLE_PROMPT,
     ].join(' ');
   }
 
@@ -123,8 +130,10 @@ function buildImagePrompt(params: {
   return [
     params.persona.appearancePrompt,
     note ? `Additional request from the user: ${note}.` : '',
-    'Upper-body portrait of an adult, photorealistic, sharp focus on the face,',
-    'looking toward the viewer, tasteful and fully clothed, no text or watermark.',
+    FIGURE_COMPOSITION_PROMPT,
+    // 화풍은 프리셋 캐릭터와 같은 문자열을 쓴다.
+    // 유료로 만든 모습이 프리셋과 다른 화풍이면 같은 서비스로 보이지 않는다.
+    ART_STYLE_PROMPT,
   ]
     .filter(Boolean)
     .join(' ');
