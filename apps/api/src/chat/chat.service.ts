@@ -16,7 +16,7 @@ import { GeminiService } from '../ai/gemini.service';
 import { ApiException } from '../common/api-exception';
 import { ModelBlockedError, ModelRateLimitedError } from '../ai/errors';
 import type { AuthUser } from '../auth/current-user.decorator';
-import { SUMMARY_SYSTEM_PROMPT, buildChatSystemPrompt } from './prompt';
+import { SUMMARY_SYSTEM_PROMPT, buildChatSystemPrompt, buildTimeContext } from './prompt';
 
 /** 원문 그대로 모델에 넘길 최근 메시지 수. 늘리면 매 턴 입력 토큰이 그만큼 늘어난다. */
 const CONTEXT_MESSAGES = 20;
@@ -40,6 +40,10 @@ interface ConversationContext {
   persona: z.infer<typeof PersonaSchema>;
   tone: RelationshipTone;
   summary: string;
+  /** 사용자를 부를 이름. 구글 프로필에서 온다. */
+  userName: string | null;
+  /** 마지막 메시지 시각. 공백을 계산해 프롬프트에 넣는다. */
+  lastMessageAt: Date | null;
 }
 
 @Injectable()
@@ -85,6 +89,8 @@ export class ChatService {
         persona: ctx.persona,
         tone: ctx.tone,
         summary,
+        userName: ctx.userName,
+        timeContext: buildTimeContext(new Date(), ctx.lastMessageAt),
       });
 
       for await (const delta of this.gemini.streamChat({
@@ -156,13 +162,14 @@ export class ChatService {
   private async loadContext(userId: string): Promise<ConversationContext> {
     const { data, error } = await this.supabase.client
       .from('soulmates')
-      .select('id, tone, persona, conversations(id, summary)')
+      .select('id, tone, persona, conversations(id, summary), profiles!inner(display_name)')
       .eq('user_id', userId)
       .maybeSingle<{
         id: string;
         tone: RelationshipTone;
         persona: unknown;
         conversations: { id: string; summary: string }[] | null;
+        profiles: { display_name: string | null } | null;
       }>();
 
     if (error) {
@@ -184,7 +191,23 @@ export class ChatService {
       persona: PersonaSchema.parse(data.persona),
       tone: data.tone,
       summary: conversation.summary ?? '',
+      userName: data.profiles?.display_name ?? null,
+      lastMessageAt: await this.lastMessageAt(conversation.id),
     };
+  }
+
+  private async lastMessageAt(conversationId: string): Promise<Date | null> {
+    const { data, error } = await this.supabase.client
+      .from('messages')
+      .select('created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<{ created_at: string }>();
+
+    if (error || !data) return null;
+    const parsed = new Date(data.created_at);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private async recentMessages(conversationId: string, limit: number): Promise<MessageRow[]> {

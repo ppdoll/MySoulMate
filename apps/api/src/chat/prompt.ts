@@ -18,8 +18,12 @@ export function buildChatSystemPrompt(params: {
   tone: RelationshipTone;
   /** 오래된 대화를 압축한 롤링 요약. 없으면 빈 문자열. */
   summary: string;
+  /** 사용자를 부를 이름. 없으면 이름 없이 말한다. */
+  userName: string | null;
+  /** 지금 시각과 마지막 대화로부터의 공백. */
+  timeContext: string;
 }): string {
-  const { persona, tone, summary } = params;
+  const { persona, tone, summary, userName, timeContext } = params;
   const interests = persona.interests.join(', ');
   const samples = persona.speechSamples.map((s) => `  - "${s}"`).join('\n');
 
@@ -53,6 +57,20 @@ export function buildChatSystemPrompt(params: {
     `예) [기쁨] 오 진짜? 잘됐다!`,
     `태그는 화면에 보이지 않고 표정을 바꾸는 데만 쓰입니다. 대사 안에서 감정을 또 설명하지 않습니다.`,
   ];
+
+  sections.push(``, `# 상대`, userName ? `- 이름: ${userName}` : `- 이름을 아직 모릅니다.`);
+  if (userName) {
+    // 매 문장마다 이름을 붙이면 상담 챗봇처럼 어색해진다.
+    sections.push(`- 가끔 이름을 불러줍니다. 매번 부르지는 않습니다.`);
+  }
+
+  sections.push(
+    ``,
+    `# 지금`,
+    timeContext,
+    `- 시간대와 공백에 맞게 반응합니다. 새벽이면 걱정하고, 오랜만이면 그걸 먼저 언급합니다.`,
+    `- 다만 억지로 끼워 넣지는 않습니다. 자연스러울 때만 씁니다.`,
+  );
 
   if (summary.trim()) {
     sections.push(``, `# 지금까지 있었던 일`, summary.trim());
@@ -88,6 +106,68 @@ const SAFETY_RULES = `# 반드시 지킬 것
   자살예방 상담전화 109(24시간, 무료)를 알려줍니다. 이때는 가볍게 넘기지 않습니다.
 - 의료·법률·투자 판단은 내리지 않습니다. 마음은 들어주되 전문가에게 확인하도록 권합니다.
 - 실존 인물을 사칭하지 않습니다.`;
+
+/**
+ * 지금 시각과 마지막 대화로부터의 공백을 문장으로 만든다.
+ *
+ * 모델은 현재 시각을 모른다. 넣어주지 않으면 새벽에 말을 걸어도 아침처럼 답하고,
+ * 사흘 만에 와도 방금 전 대화가 이어지는 것처럼 군다.
+ * 비용은 두 줄 남짓인데 "지금 나와 같은 시간에 있다" 는 감각을 만든다.
+ */
+export function buildTimeContext(now: Date, lastMessageAt: Date | null): string {
+  const parts = [`- 지금은 ${formatKst(now)} 입니다.`];
+
+  if (!lastMessageAt) {
+    parts.push(`- 아직 대화를 나눈 적이 없습니다.`);
+    return parts.join('\n');
+  }
+
+  const gapMinutes = Math.max(0, (now.getTime() - lastMessageAt.getTime()) / 60000);
+  parts.push(`- ${describeGap(gapMinutes)}`);
+  return parts.join('\n');
+}
+
+function formatKst(date: Date): string {
+  const f = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul',
+      hour: 'numeric',
+      hour12: false,
+    }).format(date),
+  );
+  return `${f.format(date)} (${partOfDay(hour)})`;
+}
+
+function partOfDay(hour: number): string {
+  if (hour < 5) return '새벽';
+  if (hour < 11) return '아침';
+  if (hour < 17) return '낮';
+  if (hour < 21) return '저녁';
+  return '밤';
+}
+
+function describeGap(minutes: number): string {
+  if (minutes < 10) return '방금까지 이어지던 대화입니다.';
+  if (minutes < 60) return `${Math.round(minutes)}분쯤 지나 다시 말을 겁니다.`;
+
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)}시간 만입니다.`;
+
+  const days = Math.floor(hours / 24);
+  if (days === 1) return '어제 이후 처음입니다.';
+  if (days < 7) return `${days}일 만입니다.`;
+  if (days < 30) return `${Math.floor(days / 7)}주 만입니다. 꽤 오랜만입니다.`;
+  return `${Math.floor(days / 30)}개월 만입니다. 아주 오랜만입니다.`;
+}
 
 /** 롤링 요약을 만들 때 쓰는 지시문. */
 export const SUMMARY_SYSTEM_PROMPT = `당신은 대화 기록을 압축하는 역할입니다.

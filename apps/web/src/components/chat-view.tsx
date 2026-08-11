@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   parseEmotionTag,
+  splitIntoBubbles,
   type ChatHistoryResponse,
   type ChatMessageDto,
   type ChatStreamEvent,
@@ -173,11 +174,22 @@ export function ChatView() {
         <SoulmateFigure soulmate={soulmate} expression={expression} speaking={sending} />
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-        {messages.map((m) => (
-          <Bubble key={m.id} role={m.role} text={m.content} />
-        ))}
-        {streaming && <Bubble role="assistant" text={streaming} />}
+      <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4">
+        {messages.map((m) =>
+          // AI 응답은 여러 말풍선으로 나눠 그린다. 사람이 메신저에서 그러듯이.
+          // 분할 결과가 항상 같으므로 실시간이든 기록이든 동일하게 보인다.
+          m.role === 'assistant' ? (
+            splitIntoBubbles(m.content).map((part, i) => (
+              <Bubble key={`${m.id}-${i}`} role="assistant" text={part} />
+            ))
+          ) : (
+            <Bubble key={m.id} role="user" text={m.content} />
+          ),
+        )}
+        {streaming &&
+          splitIntoBubbles(streaming).map((part, i) => (
+            <Bubble key={`streaming-${i}`} role="assistant" text={part} />
+          ))}
         {sending && !streaming && <Bubble role="assistant" text="" pending />}
         <div ref={bottomRef} />
       </div>

@@ -1,4 +1,5 @@
 export * from './art-style';
+export * from './bubbles';
 export * from './credits';
 export * from './archetypes';
 export * from './persona';
