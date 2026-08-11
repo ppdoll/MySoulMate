@@ -1,4 +1,4 @@
-import type { AppearanceVibe } from './persona';
+import type { AppearanceVibe, Presentation } from './persona';
 
 /**
  * 프리셋 캐릭터.
@@ -16,23 +16,40 @@ export const PRESET_CHARACTERS = [
     id: 'bright',
     label: '산뜻한',
     description: '환하게 웃는 인상',
+    presentation: 'feminine',
   },
   {
     id: 'warm',
     label: '포근한',
     description: '부드럽고 따뜻한 인상',
+    presentation: 'feminine',
   },
   {
     id: 'calm',
     label: '단정한',
     description: '차분하고 지적인 인상',
+    presentation: 'feminine',
   },
   {
     id: 'chic',
     label: '시크한',
     description: '또렷하고 도시적인 인상',
+    presentation: 'feminine',
   },
-] as const satisfies readonly { id: AppearanceVibe; label: string; description: string }[];
+] as const satisfies readonly {
+  id: AppearanceVibe;
+  label: string;
+  description: string;
+  /**
+   * 이 캐릭터의 성별 표현.
+   *
+   * 온보딩에서 따로 묻지 않고 여기서 가져온다.
+   * 프리셋 이미지가 이미 정해져 있는데 "남성적인/여성적인" 을 또 물으면
+   * 고른 그림과 답이 어긋날 수 있다.
+   * 남성 캐릭터를 추가하면 여기만 바꾸면 된다.
+   */
+  presentation: Presentation;
+}[];
 
 export type PresetId = (typeof PRESET_CHARACTERS)[number]['id'];
 
@@ -60,6 +77,11 @@ export const EMOTION_TAG_NAMES = Object.keys(EMOTION_TAGS);
 /** 정적 자원 경로. Vercel CDN이 서빙하므로 런타임 비용이 없다. */
 export function presetImagePath(id: PresetId, expression: Expression): string {
   return `/presets/${id}/${expression}.webp`;
+}
+
+export function getPreset(id: PresetId) {
+  // id가 리터럴 유니온이므로 항상 찾아진다.
+  return PRESET_CHARACTERS.find((p) => p.id === id)!;
 }
 
 /**

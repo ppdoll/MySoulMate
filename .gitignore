@@ -20,9 +20,11 @@ service-account*.json
 *.p12
 *.key
 
-# 프리셋 캐릭터 원본. WebP만 커밋하고 PNG는 로컬에 둔다.
-# (장당 1MB가 넘어서 저장소가 금방 무거워진다)
+# 캐릭터 이미지 원본. 최적화된 WebP만 커밋하고 원본은 로컬에 둔다.
+# 2048px PNG는 장당 4~12MB라, 16장이면 저장소가 127MB 불어난다.
+# 한 번 커밋되면 히스토리에 영구히 남아 클론이 계속 무거워진다.
 apps/web/public/presets/**/*.png
+/img/
 
 .vercel/
 .turbo/

@@ -206,7 +206,7 @@ function Field({
       );
 
     case 'single': {
-      const key = question.key as 'tone' | 'speechStyle' | 'presentation';
+      const key = question.key as 'tone' | 'speechStyle';
       return (
         <div className="flex flex-col gap-2.5">
           {question.options.map((o) => (
@@ -361,7 +361,7 @@ function isAnswered(question: OnboardingQuestion, draft: Draft): boolean {
     case 'scale':
       return draft[question.key as 'energy' | 'thinking' | 'humor'] !== undefined;
     case 'single':
-      return Boolean(draft[question.key as 'tone' | 'speechStyle' | 'presentation']);
+      return Boolean(draft[question.key as 'tone' | 'speechStyle']);
     case 'text':
       return question.optional ? true : Boolean(draft[question.key as 'callName']?.trim());
   }

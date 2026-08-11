@@ -5,6 +5,8 @@ import {
   RELATIONSHIP_TONE_META,
   SPEECH_STYLE_META,
   getArchetype,
+  getPreset,
+  type Appearance,
   type OnboardingAnswers,
   type Persona,
 } from '@mysoulmate/shared';
@@ -75,6 +77,9 @@ function buildPrompt(answers: OnboardingAnswers): string {
     .map((v) => INTEREST_OPTIONS.find((o) => o.value === v)?.label ?? v)
     .join(', ');
 
+  // 성별 표현은 고른 프리셋 캐릭터에서 가져온다.
+  const presentation = getPreset(answers.presetId).presentation;
+
   const lines = [
     `# 큰 줄기`,
     `${archetype.label} — ${archetype.tagline}`,
@@ -91,7 +96,7 @@ function buildPrompt(answers: OnboardingAnswers): string {
     `- 자주 나눌 이야기: ${interests}`,
     ``,
     `# 외형`,
-    `- 인상: ${PRESENTATION_HINT[answers.presentation]}`,
+    `- 인상: ${PRESENTATION_HINT[presentation]}`,
     `- 분위기 방향(영어, appearancePrompt의 뼈대로 사용): ${archetype.visualDirection}`,
   ];
 
@@ -103,7 +108,7 @@ function buildPrompt(answers: OnboardingAnswers): string {
   return lines.join('\n');
 }
 
-const PRESENTATION_HINT: Record<OnboardingAnswers['presentation'], string> = {
+const PRESENTATION_HINT: Record<Appearance['presentation'], string> = {
   feminine: 'a woman',
   masculine: 'a man',
   neutral: 'an androgynous person',

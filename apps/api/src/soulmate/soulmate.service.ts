@@ -4,6 +4,7 @@ import {
   AppearanceSchema,
   CREDIT_COSTS,
   PersonaSchema,
+  getPreset,
   vibeForArchetype,
   type Appearance,
   type OnboardingAnswers,
@@ -56,7 +57,8 @@ export class SoulmateService {
 
     const appearance: Appearance = AppearanceSchema.parse({
       archetype: answers.archetype,
-      presentation: answers.presentation,
+      // 성별 표현은 고른 프리셋 캐릭터에서 가져온다. 따로 묻지 않는다.
+      presentation: getPreset(answers.presetId).presentation,
       vibe: vibeForArchetype(answers.archetype),
       presetId: answers.presetId,
     });

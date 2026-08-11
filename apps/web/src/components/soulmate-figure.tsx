@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  EXPRESSIONS,
   presetImagePath,
   type Expression,
   type PresetId,
@@ -14,8 +15,9 @@ import {
  * 프리셋 캐릭터는 표정별 이미지가 있어 감정에 따라 교체된다.
  * AI로 만든 아바타는 한 장뿐이라 표정은 바뀌지 않고 모션만 적용된다.
  *
- * 정지 이미지라도 아주 느린 호흡 움직임과 새 메시지에 반응하는 튐이 있으면
- * 꽤 살아 있는 것처럼 보인다. 이건 CSS만으로 되고 비용이 0이다.
+ * 표정을 하드 교체하지 않고 겹쳐서 크로스페이드하는 이유:
+ * 이미지 모델로 만든 표정 변형은 인물은 같아도 배경과 구도가 미세하게 흔들린다.
+ * 즉시 바꾸면 그 차이가 '튐' 으로 보이는데, 짧은 페이드로 덮으면 자연스러워진다.
  */
 export function SoulmateFigure({
   soulmate,
@@ -27,18 +29,28 @@ export function SoulmateFigure({
   /** 응답이 도착하는 중. 살짝 튀어오르게 해서 반응을 만든다. */
   speaking?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const preset = soulmate.presetId as PresetId | null;
 
-  // 표정이 바뀔 때마다 로드 실패 상태를 초기화한다.
-  // 한 표정 파일이 없다고 다른 표정까지 못 쓰게 되면 안 된다.
-  useEffect(() => setFailed(false), [expression, soulmate.presetId]);
+  // AI 아바타가 있으면 그걸 우선한다. 사용자가 직접 만든 것이다.
+  const custom = soulmate.avatarUrl;
 
-  // AI 아바타가 있으면 그걸 우선한다. 사용자가 돈을 들여 만든 것이다.
-  const src = soulmate.avatarUrl
-    ? soulmate.avatarUrl
-    : soulmate.presetId
-      ? presetImagePath(soulmate.presetId as PresetId, failed ? 'neutral' : expression)
-      : null;
+  const [shown, setShown] = useState<Expression>(expression);
+  const [previous, setPrevious] = useState<Expression | null>(null);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (custom || expression === shown) return;
+
+    // 이전 표정을 잠깐 아래에 남겨두고 새 표정을 위에서 띄운다.
+    setPrevious(shown);
+    setShown(expression);
+
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    fadeTimer.current = setTimeout(() => setPrevious(null), 320);
+    return () => {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    };
+  }, [expression, shown, custom]);
 
   return (
     <div
@@ -47,16 +59,31 @@ export function SoulmateFigure({
       }`}
       style={{ animation: 'soulmate-breathe 5s ease-in-out infinite' }}
     >
-      {src ? (
-        // 서명 URL과 정적 파일이 섞여 있어 Next 이미지 최적화를 태우지 않는다.
+      {custom ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          key={src}
-          src={src}
+          src={custom}
           alt={`${soulmate.name}의 모습`}
-          onError={() => setFailed(true)}
           className="h-full w-full object-cover"
         />
+      ) : preset ? (
+        <>
+          {/* 표정 이미지를 전부 겹쳐두고 보이는 것만 불투명하게 한다.
+              이렇게 하면 첫 전환에서 로딩 때문에 깜빡이지 않는다. */}
+          {EXPRESSIONS.map((e) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={e}
+              src={presetImagePath(preset, e)}
+              alt={e === shown ? `${soulmate.name}의 모습` : ''}
+              aria-hidden={e !== shown}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                e === shown ? 'opacity-100' : e === previous ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{ zIndex: e === shown ? 2 : e === previous ? 1 : 0 }}
+            />
+          ))}
+        </>
       ) : (
         <div className="flex h-full w-full items-center justify-center text-4xl">🤍</div>
       )}

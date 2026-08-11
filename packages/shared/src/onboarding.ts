@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import {
   APPEARANCE_VIBES,
-  PRESENTATIONS,
-  PRESENTATION_META,
   RELATIONSHIP_TONES,
   RELATIONSHIP_TONE_META,
   SPEECH_STYLES,
@@ -88,11 +86,6 @@ const speechOptions = SPEECH_STYLES.map((value) => ({
   description: SPEECH_STYLE_META[value].description,
 }));
 
-const presentationOptions = PRESENTATIONS.map((value) => ({
-  value,
-  label: PRESENTATION_META[value].label,
-}));
-
 export const ONBOARDING_QUESTIONS = [
   {
     key: 'archetype',
@@ -151,12 +144,6 @@ export const ONBOARDING_QUESTIONS = [
     max: 3,
   },
   {
-    key: 'presentation',
-    type: 'single',
-    title: '외모는 어떤 인상이 좋을까요?',
-    options: presentationOptions,
-  },
-  {
     key: 'presetId',
     type: 'preset',
     title: '어떤 모습이 좋아요?',
@@ -190,7 +177,7 @@ export const OnboardingAnswersSchema = z.object({
     .array(z.enum(INTEREST_OPTIONS.map((o) => o.value) as [InterestValue, ...InterestValue[]]))
     .min(1)
     .max(3),
-  presentation: z.enum(PRESENTATIONS),
+  // 성별 표현은 묻지 않는다. 고른 프리셋 캐릭터에서 가져온다.
   presetId: z.enum(PRESET_IDS),
 });
 
