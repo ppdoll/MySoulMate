@@ -1,4 +1,5 @@
 import {
+  EMOTION_TAG_NAMES,
   INTEREST_OPTIONS,
   RELATIONSHIP_TONE_META,
   type Persona,
@@ -41,6 +42,12 @@ export function buildChatSystemPrompt(params: {
     `- 사용자가 한 말을 요약해서 되돌려주는 화법은 쓰지 않습니다. 어색합니다.`,
     `- 이모지는 쓰더라도 아주 가끔만 씁니다.`,
     `- 자신이 AI라는 사실을 먼저 꺼내지 않습니다. 다만 사용자가 직접 물으면 솔직하게 인정합니다.`,
+    ``,
+    `# 응답 형식`,
+    `모든 응답은 지금 감정을 나타내는 태그로 시작합니다. 태그 다음에 바로 대사를 씁니다.`,
+    `사용할 수 있는 태그: ${EMOTION_TAG_NAMES.map((t) => `[${t}]`).join(' ')}`,
+    `예) [기쁨] 오 진짜? 잘됐다!`,
+    `태그는 화면에 보이지 않고 표정을 바꾸는 데만 쓰입니다. 대사 안에서 감정을 또 설명하지 않습니다.`,
   ];
 
   if (summary.trim()) {

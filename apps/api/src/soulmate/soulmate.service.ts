@@ -58,18 +58,15 @@ export class SoulmateService {
       archetype: answers.archetype,
       presentation: answers.presentation,
       vibe: vibeForArchetype(answers.archetype),
-      ...(answers.appearanceNote ? { note: answers.appearanceNote } : {}),
+      presetId: answers.presetId,
     });
 
     // 페르소나는 실패하면 만들 게 없으므로 그대로 실패시킨다.
     const persona = await this.runModel(() => this.personas.generate(answers));
 
-    // 아바타는 실패해도 온보딩을 끝낸다.
-    // 이미지는 텍스트보다 실패 확률이 높은데(결제 미설정, 분당 한도, 안전 필터),
-    // 그것 때문에 사용자가 답한 질문 10개를 버리게 하면 안 된다.
-    // 아바타 없이 만들어두고 나중에 채운다 — 첫 아바타는 그때도 무료다.
-    const avatar = await this.tryCreateAvatar({ userId, soulmateId, persona, appearance });
-
+    // 온보딩에서는 이미지를 생성하지 않는다. 프리셋 캐릭터를 골랐으므로
+    // 모습은 이미 정해져 있다. 이렇게 두면 온보딩에 실패 지점도 비용도 없다.
+    // "AI로 만든 나만의 모습" 은 홈 카드에서 따로 만든다.
     const { error } = await this.supabase.client.rpc('create_soulmate', {
       p_user: userId,
       p_soulmate_id: soulmateId,
@@ -77,8 +74,8 @@ export class SoulmateService {
       p_tone: answers.tone,
       p_persona: persona,
       p_appearance: appearance,
-      p_storage_path: avatar?.storagePath ?? null,
-      p_image_prompt: avatar?.prompt ?? null,
+      p_storage_path: null,
+      p_image_prompt: null,
       p_greeting: persona.greeting,
     });
 
@@ -90,24 +87,6 @@ export class SoulmateService {
     const created = await this.get(userId);
     if (!created) throw ApiException.internal();
     return created;
-  }
-
-  /** 온보딩 중 아바타 생성. 실패해도 예외를 던지지 않고 null을 돌려준다. */
-  private async tryCreateAvatar(params: {
-    userId: string;
-    soulmateId: string;
-    persona: Persona;
-    appearance: Appearance;
-  }) {
-    try {
-      return await this.avatars.createAndStore(params);
-    } catch (err) {
-      this.logger.warn(
-        `아바타 생성 실패 — 소울메이트는 이미지 없이 생성합니다. user=${params.userId}: ` +
-          (err instanceof Error ? err.message : String(err)),
-      );
-      return null;
-    }
   }
 
   /**
@@ -255,15 +234,18 @@ export class SoulmateService {
       }
     }
 
+    const appearance = AppearanceSchema.parse(row.appearance);
+
     return {
       id: row.id,
       name: row.name,
       tone: row.tone,
       persona: PersonaSchema.parse(row.persona),
-      appearance: AppearanceSchema.parse(row.appearance),
+      appearance,
       avatarUrl,
       avatarExpiresAt,
       hasAvatar: row.current_avatar_id !== null,
+      presetId: appearance.presetId ?? null,
       createdAt: row.created_at,
     };
   }

@@ -4,6 +4,7 @@ import {
   CREDIT_COSTS,
   FREE_DAILY_CHAT_TURNS,
   PersonaSchema,
+  parseEmotionTag,
   type ChatHistoryResponse,
   type ChatMessageDto,
   type ChatStreamEvent,
@@ -101,7 +102,10 @@ export class ChatService {
         throw new ModelBlockedError('빈 응답');
       }
 
-      const messageId = await this.persistTurn(ctx.conversationId, text, answer);
+      // 감정 태그는 표정 교체용이라 기록에는 남기지 않는다.
+      // 남겨두면 다음 턴 컨텍스트에 섞여 들어가고 화면에도 보인다.
+      const { rest } = parseEmotionTag(answer);
+      const messageId = await this.persistTurn(ctx.conversationId, text, rest.trim() || answer);
       const wallet = await this.credits.getWallet(user.id);
       yield { type: 'done', messageId, wallet };
     } catch (err) {

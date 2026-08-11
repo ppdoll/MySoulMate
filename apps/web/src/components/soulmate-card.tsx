@@ -5,6 +5,8 @@ import Link from 'next/link';
 import {
   CREDIT_COSTS,
   RELATIONSHIP_TONE_META,
+  presetImagePath,
+  type PresetId,
   type SoulmateResponse,
   type WalletState,
 } from '@mysoulmate/shared';
@@ -29,8 +31,12 @@ export function SoulmateCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 첫 아바타는 무료다. 온보딩 중 이미지 생성이 실패해 비어 있는 경우가 여기 해당한다.
+  // 프리셋으로 시작하므로 모습은 항상 있다.
+  // "나만의 모습"(AI 생성)은 아직 안 만든 사람에게 첫 한 번이 무료다.
   const isFirstAvatar = !soulmate.hasAvatar;
+  const figureSrc =
+    soulmate.avatarUrl ??
+    (soulmate.presetId ? presetImagePath(soulmate.presetId as PresetId, 'neutral') : null);
   const cost = isFirstAvatar ? 0 : CREDIT_COSTS.avatarRegenerate;
   const affordable = isAdmin || wallet.balance >= cost;
   const resetCost = CREDIT_COSTS.soulmateReset;
@@ -80,25 +86,19 @@ export function SoulmateCard({
 
   return (
     <section className="overflow-hidden rounded-2xl bg-cream-deep dark:bg-night-soft">
-      {soulmate.avatarUrl ? (
-        // 서명 URL이라 만료된다. Next의 이미지 최적화를 태우면 캐시가 꼬여서 그냥 img로 둔다.
+      {figureSrc ? (
+        // 서명 URL과 정적 프리셋이 섞여 있어 Next 이미지 최적화를 태우지 않는다.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={soulmate.avatarUrl}
+          src={figureSrc}
           alt={`${soulmate.name}의 모습`}
           className="aspect-square w-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
         />
       ) : (
-        <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 text-center">
-          <span className="text-4xl">🤍</span>
-          {isFirstAvatar && (
-            <p className="px-6 text-sm text-ink-soft dark:text-cream/60">
-              아직 모습이 없어요.
-              <br />
-              아래에서 만들어 주세요.
-            </p>
-          )}
-        </div>
+        <div className="flex aspect-square w-full items-center justify-center text-4xl">🤍</div>
       )}
 
       <div className="p-5">
@@ -136,7 +136,9 @@ export function SoulmateCard({
             onClick={() => setOpen(true)}
             className="mt-2.5 w-full rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
           >
-            {isFirstAvatar ? '모습 만들기 · 무료' : `모습 다시 그리기 · ${cost} 크레딧`}
+            {isFirstAvatar
+              ? 'AI로 나만의 모습 만들기 · 무료'
+              : `모습 다시 그리기 · ${cost} 크레딧`}
           </button>
         ) : (
           <div className="mt-5 rounded-xl border border-black/10 p-4 dark:border-white/15">

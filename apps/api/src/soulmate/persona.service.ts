@@ -93,14 +93,6 @@ function buildPrompt(answers: OnboardingAnswers): string {
     `- 분위기 방향(영어, appearancePrompt의 뼈대로 사용): ${archetype.visualDirection}`,
   ];
 
-  if (answers.appearanceNote) {
-    // 사용자가 직접 쓴 요청이므로 다른 조건보다 우선한다.
-    lines.push(
-      `- 사용자가 직접 요청한 외형: ${answers.appearanceNote}`,
-      `  이 요청은 위 분위기 방향보다 우선해서 반영합니다.`,
-    );
-  }
-
   lines.push(
     ``,
     `name 필드에는 정확히 "${answers.callName}" 를 넣습니다. 다른 이름을 만들지 않습니다.`,

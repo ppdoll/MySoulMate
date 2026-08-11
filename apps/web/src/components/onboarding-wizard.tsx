@@ -6,8 +6,12 @@ import {
   ARCHETYPES,
   ONBOARDING_QUESTION_LIST,
   OnboardingAnswersSchema,
+  PRESET_CHARACTERS,
   defaultsForArchetype,
+  presetImagePath,
+  vibeForArchetype,
   type ArchetypeValue,
+  type PresetId,
   type OnboardingAnswers,
   type OnboardingQuestion,
   type SoulmateResponse,
@@ -31,9 +35,17 @@ export function OnboardingWizard() {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }
 
-  /** 타입을 고르면 성격 3축 기본값을 함께 채워둔다. 이후 화면에서 사용자가 조정한다. */
+  /**
+   * 타입을 고르면 성격 3축 기본값과 어울리는 프리셋을 함께 채워둔다.
+   * 프리셋 ID가 외형 분위기와 같은 값이라 그대로 매칭된다. 사용자는 나중에 바꿀 수 있다.
+   */
   function pickArchetype(value: ArchetypeValue) {
-    setDraft((prev) => ({ ...prev, archetype: value, ...defaultsForArchetype(value) }));
+    setDraft((prev) => ({
+      ...prev,
+      archetype: value,
+      ...defaultsForArchetype(value),
+      presetId: vibeForArchetype(value) as PresetId,
+    }));
     next();
   }
 
@@ -155,6 +167,44 @@ function Field({
         </div>
       );
 
+    case 'preset':
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          {PRESET_CHARACTERS.map((p) => {
+            const on = draft.presetId === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => set('presetId', p.id)}
+                className={`overflow-hidden rounded-2xl border text-left transition ${
+                  on ? 'border-blush ring-2 ring-blush/30' : 'border-black/10 dark:border-white/15'
+                }`}
+              >
+                {/* 이미지가 아직 없어도 자리와 라벨은 보이게 둔다. */}
+                <span className="flex aspect-square w-full items-center justify-center bg-cream-deep dark:bg-night-soft">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={presetImagePath(p.id, 'neutral')}
+                    alt={p.label}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </span>
+                <span className="block px-3 py-2">
+                  <span className="block text-sm font-medium">{p.label}</span>
+                  <span className="block text-xs text-ink-soft dark:text-cream/60">
+                    {p.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      );
+
     case 'single': {
       const key = question.key as 'tone' | 'speechStyle' | 'presentation';
       return (
@@ -250,7 +300,7 @@ function Field({
     }
 
     case 'text': {
-      const key = question.key as 'callName' | 'appearanceNote';
+      const key = question.key as 'callName';
       return (
         <textarea
           value={draft[key] ?? ''}
@@ -304,6 +354,8 @@ function isAnswered(question: OnboardingQuestion, draft: Draft): boolean {
   switch (question.type) {
     case 'archetype':
       return Boolean(draft.archetype);
+    case 'preset':
+      return Boolean(draft.presetId);
     case 'multi':
       return (draft.interests?.length ?? 0) >= question.min;
     case 'scale':
@@ -311,9 +363,7 @@ function isAnswered(question: OnboardingQuestion, draft: Draft): boolean {
     case 'single':
       return Boolean(draft[question.key as 'tone' | 'speechStyle' | 'presentation']);
     case 'text':
-      return question.optional
-        ? true
-        : Boolean(draft[question.key as 'callName' | 'appearanceNote']?.trim());
+      return question.optional ? true : Boolean(draft[question.key as 'callName']?.trim());
   }
 }
 

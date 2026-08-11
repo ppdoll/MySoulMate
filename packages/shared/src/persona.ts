@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ARCHETYPE_VALUES } from './archetypes';
+import { PRESET_IDS } from './presets';
 
 /**
  * 소울메이트의 페르소나 정의.
@@ -112,6 +113,12 @@ export const AppearanceSchema = z.object({
   archetype: z.enum(ARCHETYPE_VALUES),
   presentation: z.enum(PRESENTATIONS),
   vibe: z.enum(APPEARANCE_VIBES),
+  /**
+   * 고른 프리셋 캐릭터. 온보딩에서는 항상 채워진다.
+   * AI로 나만의 모습을 만들어도 지우지 않는다 — 되돌리고 싶을 수 있다.
+   */
+  presetId: z.enum(PRESET_IDS).optional(),
+  /** AI 생성 시 사용자가 덧붙인 요청. */
   note: z.string().max(200).optional(),
 });
 

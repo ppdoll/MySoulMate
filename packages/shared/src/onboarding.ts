@@ -9,6 +9,7 @@ import {
   SPEECH_STYLE_META,
 } from './persona';
 import { ARCHETYPES, ARCHETYPE_VALUES, getArchetype, type ArchetypeValue } from './archetypes';
+import { PRESET_IDS } from './presets';
 
 /**
  * 온보딩 질문 정의.
@@ -53,7 +54,9 @@ export type OnboardingQuestion =
       readonly maxLabel: string;
     })
   /** 큰 줄기를 고르는 카드형 질문. 화면에서 다른 단일 선택과 다르게 그려진다. */
-  | (QuestionBase & { readonly type: 'archetype' });
+  | (QuestionBase & { readonly type: 'archetype' })
+  /** 프리셋 캐릭터 고르기. 이미지 격자로 그린다. */
+  | (QuestionBase & { readonly type: 'preset' });
 
 /** 관심사 선택지. 페르소나의 대화 소재가 된다. */
 export const INTEREST_OPTIONS = [
@@ -154,13 +157,10 @@ export const ONBOARDING_QUESTIONS = [
     options: presentationOptions,
   },
   {
-    key: 'appearanceNote',
-    type: 'text',
-    title: '외모에 대해 더 알려주고 싶은 게 있나요?',
-    help: '건너뛰어도 괜찮아요.',
-    placeholder: '예: 단발머리에 안경을 썼으면 좋겠어요',
-    maxLength: 200,
-    optional: true,
+    key: 'presetId',
+    type: 'preset',
+    title: '어떤 모습이 좋아요?',
+    help: '나중에 나만의 모습을 따로 만들 수도 있어요.',
   },
 ] as const satisfies readonly OnboardingQuestion[];
 
@@ -191,7 +191,7 @@ export const OnboardingAnswersSchema = z.object({
     .min(1)
     .max(3),
   presentation: z.enum(PRESENTATIONS),
-  appearanceNote: z.string().trim().max(200).optional(),
+  presetId: z.enum(PRESET_IDS),
 });
 
 export type OnboardingAnswers = z.infer<typeof OnboardingAnswersSchema>;

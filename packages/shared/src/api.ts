@@ -110,6 +110,11 @@ export interface SoulmateResponse {
    * 첫 아바타는 무료라서 둘을 구분해야 버튼 문구를 맞게 띄울 수 있다.
    */
   hasAvatar: boolean;
+  /**
+   * 고른 프리셋 캐릭터. AI 아바타가 없으면 이걸로 그린다.
+   * 프리셋은 표정별 이미지가 있어서 대화 중 감정에 따라 교체된다.
+   */
+  presetId: string | null;
   createdAt: string;
 }
 
