@@ -38,8 +38,13 @@ export function ChatView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const historyBottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  /** 새 메시지가 붙었을 때만 맨 아래로 내린다. 위로 더 불러올 때는 유지해야 한다. */
+  const stickToBottom = useRef(true);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -53,6 +58,7 @@ export function ChatView() {
       setIsAdmin(me.isAdmin);
       setSoulmate(sm);
       setMessages(history.messages);
+      setHasMore(history.hasMore);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'unauthorized') return router.replace('/');
       if (err instanceof ApiError && err.code === 'not_found') return router.replace('/onboarding');
@@ -74,6 +80,53 @@ export function ChatView() {
     if (historyOpen) historyBottomRef.current?.scrollIntoView();
   }, [historyOpen]);
 
+  // 새 말풍선이 붙으면 맨 아래로. 위로 올려 보는 중이면 방해하지 않는다.
+  useEffect(() => {
+    if (!stickToBottom.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, streaming, sending]);
+
+  /**
+   * 위로 올리면 이전 대화를 더 불러온다.
+   *
+   * 앞에 붙이면 스크롤 위치가 튀므로, 늘어난 높이만큼 scrollTop을 밀어
+   * 보고 있던 지점이 그대로 있게 한다.
+   */
+  const loadOlder = useCallback(async () => {
+    const el = scrollRef.current;
+    const oldest = messages[0];
+    if (!el || !oldest || !hasMore || loadingMore) return;
+
+    setLoadingMore(true);
+    const before = el.scrollHeight;
+    try {
+      const page = await apiFetch<ChatHistoryResponse>(
+        `/chat/messages?before=${encodeURIComponent(oldest.createdAt)}`,
+      );
+      stickToBottom.current = false;
+      setMessages((prev) => [...page.messages, ...prev]);
+      setHasMore(page.hasMore);
+
+      // 렌더 후 높이 차이만큼 보정한다.
+      requestAnimationFrame(() => {
+        el.scrollTop += el.scrollHeight - before;
+      });
+    } catch {
+      // 더 못 불러와도 지금 대화는 계속할 수 있다. 조용히 넘어간다.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [messages, hasMore, loadingMore]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    // 바닥 근처에 있을 때만 새 메시지를 따라 내려간다.
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (el.scrollTop < 60) void loadOlder();
+  }
+
   async function send() {
     const text = draft.trim();
     if (!text || sending) return;
@@ -88,6 +141,7 @@ export function ChatView() {
       content: text,
       createdAt: new Date().toISOString(),
     };
+    stickToBottom.current = true;
     setMessages((prev) => [...prev, optimistic]);
     setDraft('');
 
@@ -159,9 +213,6 @@ export function ChatView() {
     );
   }
 
-  // 화면에는 최근 것만 띄운다. 전체는 기록 패널에서 본다.
-  const recent = messages.slice(-2);
-
   return (
     <main className="relative mx-auto h-dvh w-full max-w-md overflow-hidden bg-night">
       <SoulmateFigure soulmate={soulmate} expression={expression} variant="full" />
@@ -187,23 +238,36 @@ export function ChatView() {
         </span>
       </header>
 
-      {/* 자막처럼 뜨는 최근 대화.
-          말풍선이 많아져도 헤더를 덮지 않도록 높이를 제한하고 아래쪽에 붙인다. */}
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[55%] flex-col justify-end gap-2 overflow-hidden px-5 pb-32">
-        {recent.map((m) =>
-          m.role === 'assistant' ? (
-            splitIntoBubbles(m.content).map((part, i) => (
-              <Caption key={`${m.id}-${i}`} role="assistant" text={part} />
-            ))
-          ) : (
-            <Caption key={m.id} role="user" text={m.content} />
-          ),
-        )}
-        {streaming &&
-          splitIntoBubbles(streaming).map((part, i) => (
-            <Caption key={`s-${i}`} role="assistant" text={part} />
-          ))}
-        {sending && !streaming && <Caption role="assistant" text="" pending />}
+      {/* 자막처럼 뜨는 대화.
+          평소엔 최근 것만 보이고 위로 올리면 지난 대화가 나온다.
+          헤더를 덮지 않도록 높이를 제한한다. */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="absolute inset-x-0 bottom-0 max-h-[58%] overflow-y-auto overscroll-contain px-5 pb-32"
+      >
+        {/* min-h-full + justify-end: 대화가 짧으면 아래에 붙고, 길어지면 위로 스크롤된다. */}
+        <div className="flex min-h-full flex-col justify-end gap-2">
+          {hasMore && (
+            <p className="py-2 text-center text-xs text-white/60">
+              {loadingMore ? '불러오는 중…' : '위로 올리면 지난 대화가 나와요'}
+            </p>
+          )}
+          {messages.map((m) =>
+            m.role === 'assistant' ? (
+              splitIntoBubbles(m.content).map((part, i) => (
+                <Caption key={`${m.id}-${i}`} role="assistant" text={part} />
+              ))
+            ) : (
+              <Caption key={m.id} role="user" text={m.content} />
+            ),
+          )}
+          {streaming &&
+            splitIntoBubbles(streaming).map((part, i) => (
+              <Caption key={`s-${i}`} role="assistant" text={part} />
+            ))}
+          {sending && !streaming && <Caption role="assistant" text="" pending />}
+        </div>
       </div>
 
       {error && (
