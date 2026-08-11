@@ -23,11 +23,17 @@ export function SoulmateFigure({
   soulmate,
   expression,
   speaking,
+  variant = 'card',
 }: {
   soulmate: SoulmateResponse;
   expression: Expression;
   /** 응답이 도착하는 중. 살짝 튀어오르게 해서 반응을 만든다. */
   speaking?: boolean;
+  /**
+   * card — 홈 카드용 정사각 썸네일
+   * full — 대화 화면용 전체 배경. 세로 화면에서는 좌우가 잘린다(얼굴이 중앙이라 무방).
+   */
+  variant?: 'card' | 'full';
 }) {
   const preset = soulmate.presetId as PresetId | null;
 
@@ -52,11 +58,16 @@ export function SoulmateFigure({
     };
   }, [expression, shown, custom]);
 
+  const shell =
+    variant === 'full'
+      ? 'absolute inset-0 h-full w-full overflow-hidden bg-cream-deep dark:bg-night'
+      : `relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-3xl bg-cream-deep dark:bg-night-soft ${
+          speaking ? 'scale-[1.02]' : 'scale-100'
+        }`;
+
   return (
     <div
-      className={`relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-3xl bg-cream-deep transition-transform duration-300 dark:bg-night-soft ${
-        speaking ? 'scale-[1.02]' : 'scale-100'
-      }`}
+      className={`${shell} transition-transform duration-300`}
       style={{ animation: 'soulmate-breathe 5s ease-in-out infinite' }}
     >
       {custom ? (
