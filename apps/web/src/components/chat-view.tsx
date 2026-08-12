@@ -133,10 +133,6 @@ export function ChatView() {
     const text = draft.trim();
     if (!text || sending) return;
 
-    setSending(true);
-    setError(null);
-    setStreaming('');
-
     const optimistic: ChatMessageDto = {
       id: `local-${Date.now()}`,
       role: 'user',
@@ -149,10 +145,79 @@ export function ChatView() {
     setMessages((prev) => [...prev, optimistic]);
     setDraft('');
 
+    await runStream(
+      () => apiStream('/chat', { text }),
+      () => {
+        // 보낸 메시지를 지우고 입력창에 돌려놓는다. 다시 타이핑하게 만들지 않는다.
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        setDraft(text);
+      },
+    );
+  }
+
+  /** 마지막 턴이 끝나 있어야 되돌리거나 다시 답하게 할 수 있다. */
+  const lastDone =
+    !sending && !streaming && messages[messages.length - 1]?.role === 'assistant';
+
+  /**
+   * 같은 말에 다시 답하게 한다.
+   *
+   * 서버가 마지막 턴을 지우고 새로 만든다. 화면에서도 응답을 먼저 걷어내야
+   * 옛 답과 새 답이 겹쳐 보이지 않는다.
+   */
+  async function regenerate() {
+    if (!lastDone) return;
+
+    const question = messages[messages.length - 2];
+    if (question?.role !== 'user') return;
+
+    stickToBottom.current = true;
+    setMessages((prev) => prev.slice(0, -1));
+
+    await runStream(
+      () => apiStream('/chat/regenerate'),
+      () => {
+        // 서버는 이미 질문까지 지웠다. 화면도 맞추고 말은 입력창에 돌려준다.
+        setMessages((prev) => prev.slice(0, -1));
+        setDraft(question.content);
+      },
+    );
+  }
+
+  /** 마지막 턴을 없던 일로. 크레딧은 돌아오지 않는다. */
+  async function undo() {
+    if (!lastDone) return;
+
+    setSending(true);
+    setError(null);
+    try {
+      await apiFetch<void>('/chat/last', { method: 'DELETE' });
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[next.length - 1]?.role === 'assistant') next.pop();
+        if (next[next.length - 1]?.role === 'user') next.pop();
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '되돌리지 못했어요.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  /**
+   * SSE를 읽어 화면에 흘린다. 새 대화와 다시 답하기가 이 한 벌을 같이 쓴다.
+   * 다른 건 실패했을 때 무엇을 되돌리느냐뿐이다.
+   */
+  async function runStream(start: () => Promise<Response>, restore: () => void) {
+    setSending(true);
+    setError(null);
+    setStreaming('');
+
     let accumulated = '';
     let body = '';
     try {
-      const res = await apiStream('/chat', { text });
+      const res = await start();
       for await (const event of readSse(res)) {
         if (event.type === 'delta') {
           accumulated += event.text;
@@ -178,9 +243,7 @@ export function ChatView() {
         }
       }
     } catch (err) {
-      // 보낸 메시지를 지우고 입력창에 돌려놓는다. 다시 타이핑하게 만들지 않는다.
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setDraft(text);
+      restore();
       setStreaming('');
       setExpression('worried');
       setError(
@@ -272,6 +335,18 @@ export function ChatView() {
               <Caption key={`s-${i}`} role="assistant" text={part} emotion={expression} />
             ))}
           {sending && !streaming && <Caption role="assistant" text="" pending />}
+
+          {/* 어긋난 답을 그대로 두면 다음 20턴 컨텍스트에 남고 결국 기억으로 굳는다. */}
+          {lastDone && (
+            <div className="flex gap-3 pt-0.5 pl-1 text-xs text-white/65">
+              <button type="button" onClick={() => void regenerate()}>
+                ↺ 다시 답하기
+              </button>
+              <button type="button" onClick={() => void undo()}>
+                ✕ 되돌리기
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -362,10 +437,13 @@ function Caption({
 }
 
 /**
- * 강조(`**...**`)를 굵게, 감정에 맞는 색으로 그린다.
+ * 강조(`**...**`)를 굵게 감정 색으로, 묘사(`*...*`)를 흐린 기울임으로 그린다.
  *
  * 색을 따로 지시하지 않고 이미 있는 감정 태그에서 파생시킨다.
  * 모델에 색 문법을 가르치면 틀릴 여지가 생기고, 색이 내용과 어긋날 수 있다.
+ *
+ * 묘사는 대사가 아니므로 색을 주지 않는다. 강조와 같은 무게로 보이면
+ * 둘 다 강조가 아니게 된다.
  *
  * 토큰을 받아 React 노드로 만들므로 dangerouslySetInnerHTML 이 필요 없다.
  */
@@ -375,15 +453,23 @@ function Emphasized({ text, emotion }: { text: string; emotion?: string | null }
 
   return (
     <>
-      {tokens.map((t, i) =>
-        t.bold ? (
-          <strong key={i} className="font-semibold" style={color ? { color } : undefined}>
-            {t.text}
-          </strong>
-        ) : (
-          <span key={i}>{t.text}</span>
-        ),
-      )}
+      {tokens.map((t, i) => {
+        if (t.bold) {
+          return (
+            <strong key={i} className="font-semibold" style={color ? { color } : undefined}>
+              {t.text}
+            </strong>
+          );
+        }
+        if (t.italic) {
+          return (
+            <em key={i} className="opacity-60">
+              {t.text}
+            </em>
+          );
+        }
+        return <span key={i}>{t.text}</span>;
+      })}
     </>
   );
 }

@@ -153,6 +153,92 @@ export class ChatService {
     }
   }
 
+  /**
+   * 마지막 한 턴을 지운다.
+   *
+   * 크레딧은 돌려주지 않는다. 응답은 이미 만들어졌고, 환불하면
+   * 보내고 -> 읽고 -> 되돌리기로 무한히 공짜 대화가 된다.
+   *
+   * 지우는 이유는 화면 정리가 아니다. 어긋난 응답을 그대로 두면 다음 20턴 내내
+   * 컨텍스트에 남아 톤을 끌고 가고, 결국 요약과 기억으로 굳는다.
+   */
+  async undoLastTurn(userId: string): Promise<void> {
+    const ctx = await this.loadContext(userId);
+    const text = await this.deleteLastTurn(ctx.conversationId);
+    if (text === null) throw ApiException.notFound('되돌릴 대화가 없어요.');
+  }
+
+  /**
+   * 마지막 턴을 지우고 같은 말에 다시 답하게 한다.
+   *
+   * 지운 뒤 평소 흐름을 그대로 태운다 — 차감·환불·저장·감정 태그가 한 벌만 존재해야
+   * 나중에 한쪽만 고치는 일이 없다. 그래서 크레딧도 새 대화 한 턴과 똑같이 든다.
+   *
+   * 실패하면 지운 턴은 돌아오지 않는다. 대신 프론트가 사용자의 말을 입력창에
+   * 되돌려 놓는다(어차피 지우려던 응답이라 잃는 건 없다).
+   */
+  async *regenerate(user: AuthUser): AsyncGenerator<ChatStreamEvent> {
+    const ctx = await this.loadContext(user.id);
+
+    // 지우기 전에 낼 수 있는지부터 본다. 차감은 stream() 안에서 일어나므로
+    // 이 확인이 없으면 잔액 0인 사용자가 턴만 잃고 다시 답도 못 받는다.
+    if (!user.isAdmin) {
+      const wallet = await this.credits.getWallet(user.id);
+      if (wallet.freeTurnsRemaining + wallet.balance < CREDIT_COSTS.chatTurn) {
+        yield {
+          type: 'error',
+          code: 'insufficient_credits',
+          message: '남은 대화가 없어서 다시 답할 수 없어요.',
+        };
+        return;
+      }
+    }
+
+    const text = await this.deleteLastTurn(ctx.conversationId);
+
+    if (text === null) {
+      yield { type: 'error', code: 'not_found', message: '다시 답할 대화가 없어요.' };
+      return;
+    }
+    yield* this.stream(user, text);
+  }
+
+  /**
+   * 마지막 턴(사용자 말 + 응답) 두 줄을 지우고 사용자가 했던 말을 돌려준다.
+   * 지울 게 없으면 null.
+   */
+  private async deleteLastTurn(conversationId: string): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from('messages')
+      .select('id, role, content')
+      .eq('conversation_id', conversationId)
+      .order('seq', { ascending: false })
+      .limit(2);
+
+    if (error) {
+      this.logger.error(`마지막 턴 조회 실패 [${error.code}] ${error.message}`);
+      throw ApiException.internal();
+    }
+
+    // persistTurn 이 두 줄을 한 번에 넣으므로 정상 상태면 [응답, 질문] 순이다.
+    // 한쪽만 있는 경우는 저장이 깨진 것이라 건드리지 않는다.
+    const rows = (data ?? []) as { id: string; role: string; content: string }[];
+    const answer = rows.find((r) => r.role === 'assistant');
+    const question = rows.find((r) => r.role === 'user');
+    if (!answer || !question) return null;
+
+    const { error: deleteError } = await this.supabase.client
+      .from('messages')
+      .delete()
+      .in('id', [answer.id, question.id]);
+
+    if (deleteError) {
+      this.logger.error(`마지막 턴 삭제 실패 [${deleteError.code}] ${deleteError.message}`);
+      throw ApiException.internal();
+    }
+    return question.content;
+  }
+
   async history(userId: string, before?: string): Promise<ChatHistoryResponse> {
     const ctx = await this.loadContext(userId);
 

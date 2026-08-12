@@ -58,7 +58,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
  * SSE 스트리밍용. EventSource는 헤더를 붙일 수 없어서
  * fetch + ReadableStream으로 직접 읽는다(채팅에서 쓴다).
  */
-export async function apiStream(path: string, body: unknown): Promise<Response> {
+export async function apiStream(path: string, body?: unknown): Promise<Response> {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
     headers: {

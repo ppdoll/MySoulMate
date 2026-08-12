@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   SendMessageSchema,
@@ -30,11 +30,29 @@ export class ChatController {
    * Bearer 토큰을 보낼 수 없으므로, 프론트는 fetch + ReadableStream으로 읽는다.
    */
   @Post()
-  async send(
+  send(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(SendMessageSchema)) body: SendMessageRequest,
     @Res() res: Response,
   ): Promise<void> {
+    return this.pipe(res, this.chat.stream(user, body.text));
+  }
+
+  /** 마지막 턴을 지우고 같은 말에 다시 답하게 한다. 새 대화 한 턴과 같은 크레딧이 든다. */
+  @Post('regenerate')
+  regenerate(@CurrentUser() user: AuthUser, @Res() res: Response): Promise<void> {
+    return this.pipe(res, this.chat.regenerate(user));
+  }
+
+  /** 마지막 턴을 지운다. 크레딧은 돌려주지 않는다. */
+  @Delete('last')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  undo(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.chat.undoLastTurn(user.id);
+  }
+
+  /** 이벤트 스트림을 SSE로 흘려보낸다. */
+  private async pipe(res: Response, events: AsyncIterable<ChatStreamEvent>): Promise<void> {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -47,7 +65,7 @@ export class ChatController {
     };
 
     try {
-      for await (const event of this.chat.stream(user, body.text)) {
+      for await (const event of events) {
         write(event);
       }
     } catch (err) {

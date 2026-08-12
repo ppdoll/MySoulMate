@@ -26,22 +26,31 @@ export function splitIntoBubbles(text: string): string[] {
   const segments: string[] = [];
   let current = '';
   /**
-   * 강조(`**...**`) 안에서는 끊지 않는다.
-   * 가르면 양쪽 풍선에 짝 없는 마커가 남아 `**` 가 그대로 보인다.
+   * 강조(`**굵게**`, `*묘사*`) 안에서는 끊지 않는다.
+   * 가르면 양쪽 풍선에 짝 없는 마커가 남아 별표가 그대로 보인다.
    */
-  let inEmphasis = false;
+  let inBold = false;
+  let inItalic = false;
 
   for (let i = 0; i < trimmed.length; i++) {
     const ch = trimmed[i]!;
     current += ch;
 
-    if (ch === '*' && trimmed[i - 1] === '*') {
-      inEmphasis = !inEmphasis;
+    if (ch === '*') {
+      if (trimmed[i + 1] === '*') {
+        // `**` 는 한 덩어리다. 두 번째 별표를 홑따옴으로 다시 세면 상태가 뒤집힌다.
+        current += '*';
+        i++;
+        inBold = !inBold;
+      } else {
+        inItalic = !inItalic;
+      }
+      continue;
     }
 
     // 마지막 풍선에는 남은 걸 전부 담는다.
     if (segments.length >= MAX_BUBBLES - 1) continue;
-    if (inEmphasis) continue;
+    if (inBold || inItalic) continue;
 
     const next = trimmed[i + 1];
 
