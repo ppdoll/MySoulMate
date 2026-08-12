@@ -141,5 +141,8 @@ psql_run -f "$ROOT/supabase/test/06_free_quota.sql"
 echo "==> 검증 (장기 기억)"
 psql_run -f "$ROOT/supabase/test/07_memories.sql"
 
+echo "==> 검증 (기억 고정)"
+psql_run -f "$ROOT/supabase/test/08_memory_pin.sql"
+
 echo
 echo "완료."

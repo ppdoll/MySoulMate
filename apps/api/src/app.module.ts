@@ -6,9 +6,18 @@ import { HealthController } from './health/health.controller';
 import { MeModule } from './me/me.module';
 import { SoulmateModule } from './soulmate/soulmate.module';
 import { ChatModule } from './chat/chat.module';
+import { MemoriesModule } from './memories/memories.module';
 
 @Module({
-  imports: [AppConfigModule, SupabaseModule, AuthModule, MeModule, SoulmateModule, ChatModule],
+  imports: [
+    AppConfigModule,
+    SupabaseModule,
+    AuthModule,
+    MeModule,
+    SoulmateModule,
+    ChatModule,
+    MemoriesModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

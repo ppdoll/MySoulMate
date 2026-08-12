@@ -137,6 +137,16 @@ export function HomeClient() {
         )}
       </div>
 
+      {soulmate && (
+        <Link
+          href="/memories"
+          className="mt-3 flex items-center justify-between rounded-2xl border border-black/10 px-5 py-4 dark:border-white/15"
+        >
+          <span className="text-sm font-medium">{soulmate.name}가 기억하는 것</span>
+          <span className="text-sm text-ink-soft dark:text-cream/50">보기 ›</span>
+        </Link>
+      )}
+
       <SelfIntroCard
         value={me.profile.selfIntro}
         soulmateName={soulmate?.name ?? null}

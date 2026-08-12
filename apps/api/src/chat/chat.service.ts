@@ -46,6 +46,8 @@ interface ConversationContext {
   persona: z.infer<typeof PersonaSchema>;
   tone: RelationshipTone;
   summary: string;
+  /** 여기까지의 메시지는 요약에 반영됐다. 다음 압축은 이 뒤부터 읽는다. */
+  summarizedUptoSeq: number;
   /** 사용자를 부를 이름. 구글 프로필에서 온다. */
   userName: string | null;
   /** 사용자가 직접 적은 소개. */
@@ -188,13 +190,15 @@ export class ChatService {
   private async loadContext(userId: string): Promise<ConversationContext> {
     const { data, error } = await this.supabase.client
       .from('soulmates')
-      .select('id, tone, persona, conversations(id, summary), profiles!inner(display_name, self_intro)')
+      .select(
+        'id, tone, persona, conversations(id, summary, summarized_upto_seq), profiles!inner(display_name, self_intro)',
+      )
       .eq('user_id', userId)
       .maybeSingle<{
         id: string;
         tone: RelationshipTone;
         persona: unknown;
-        conversations: { id: string; summary: string }[] | null;
+        conversations: { id: string; summary: string; summarized_upto_seq: number }[] | null;
         profiles: { display_name: string | null; self_intro: string | null } | null;
       }>();
 
@@ -217,6 +221,7 @@ export class ChatService {
       persona: PersonaSchema.parse(data.persona),
       tone: data.tone,
       summary: conversation.summary ?? '',
+      summarizedUptoSeq: conversation.summarized_upto_seq ?? 0,
       userName: data.profiles?.display_name ?? null,
       selfIntro: data.profiles?.self_intro ?? null,
       lastMessageAt: await this.lastMessageAt(conversation.id),
@@ -284,7 +289,9 @@ export class ChatService {
   /**
    * 프롬프트에 넣을 기억.
    *
-   * 중요한 것부터, 같은 중요도면 최근 것부터 가져온다.
+   * 사용자가 고정한 것부터, 그다음 중요한 것부터, 같은 중요도면 최근 것부터.
+   * 자리가 정해져 있어서(MEMORY_RECALL_LIMIT) 고정한 것이 밀려나면 안 된다.
+   *
    * pgvector 로 관련성 검색을 하는 건 다음 단계다 — 기억이 수십 개 수준이면
    * 전부 넣는 것과 골라 넣는 것의 차이가 크지 않다.
    */
@@ -295,6 +302,7 @@ export class ChatService {
       .from('memories')
       .select('kind, content')
       .eq('soulmate_id', soulmateId)
+      .order('pinned', { ascending: false })
       .order('importance', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(MEMORY_RECALL_LIMIT);
@@ -315,25 +323,34 @@ export class ChatService {
    *
    * 오래된 메시지를 지우지는 않는다 — 기록은 사용자의 것이고,
    * 컨텍스트에 넣지 않을 뿐이다.
+   *
+   * 어디까지 읽었는지는 conversations.summarized_upto_seq 로 남긴다.
+   * 이게 없으면 40개를 넘긴 뒤 매 턴 같은 앞부분을 다시 요약한다.
    */
   private async maybeCompress(ctx: ConversationContext): Promise<string> {
     const { count, error } = await this.supabase.client
       .from('messages')
       .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', ctx.conversationId);
+      .eq('conversation_id', ctx.conversationId)
+      .gt('seq', ctx.summarizedUptoSeq);
 
     if (error || (count ?? 0) <= SUMMARY_THRESHOLD) return ctx.summary;
 
     const { data, error: fetchError } = await this.supabase.client
       .from('messages')
-      .select('role, content')
+      .select('role, content, seq')
       .eq('conversation_id', ctx.conversationId)
+      .gt('seq', ctx.summarizedUptoSeq)
       .order('seq', { ascending: true })
       .limit(SUMMARY_BATCH);
 
     if (fetchError || !data?.length) return ctx.summary;
 
-    const transcript = (data as { role: string; content: string }[])
+    const batch = data as { role: string; content: string; seq: number }[];
+    const upto = batch[batch.length - 1]?.seq;
+    if (upto === undefined) return ctx.summary;
+
+    const transcript = batch
       .map((m) => `${m.role === 'user' ? '사용자' : ctx.persona.name}: ${m.content}`)
       .join('\n');
 
@@ -354,10 +371,18 @@ export class ChatService {
         retries: 0,
       });
 
-      await this.supabase.client
+      // 요약과 워터마크는 함께 움직여야 한다. 하나만 반영되면 같은 구간을
+      // 다시 읽거나(중복) 건너뛴다(누락).
+      const { error: saveError } = await this.supabase.client
         .from('conversations')
-        .update({ summary: result.summary })
+        .update({ summary: result.summary, summarized_upto_seq: upto })
         .eq('id', ctx.conversationId);
+
+      if (saveError) {
+        this.logger.warn(`요약 저장 실패 [${saveError.code}] ${saveError.message}`);
+        return ctx.summary;
+      }
+      ctx.summarizedUptoSeq = upto;
 
       await this.storeMemories(ctx.soulmateId, result.memories);
 
