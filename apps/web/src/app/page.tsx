@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { GoogleSignInButton } from '@/components/google-sign-in-button';
+import { ReferralCatcher } from '@/components/referral-catcher';
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: '로그인이 완료되지 않았어요. 다시 시도해 주세요.',
@@ -11,7 +12,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LandingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ref?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -20,11 +21,14 @@ export default async function LandingPage({
 
   if (user) redirect('/home');
 
-  const { error } = await searchParams;
+  const { error, ref } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.auth_failed) : null;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-16">
+      {/* 로그인하면 쿼리스트링이 사라진다. 그 전에 초대 코드를 챙겨둔다. */}
+      {ref && <ReferralCatcher code={ref} />}
+
       <div className="flex flex-col items-center text-center">
         <span className="mb-8 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-cream-deep text-3xl dark:bg-night-soft">
           🤍

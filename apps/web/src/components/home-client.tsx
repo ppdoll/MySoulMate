@@ -9,6 +9,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { SoulmateCard } from './soulmate-card';
 import { SelfIntroCard } from './self-intro-card';
 import { MissionsCard } from './missions-card';
+import { ReferralCard } from './referral-card';
 
 export function HomeClient() {
   const router = useRouter();
@@ -142,6 +143,8 @@ export function HomeClient() {
         onWallet={(wallet) => setMe((prev) => (prev ? { ...prev, wallet } : prev))}
       />
 
+      <ReferralCard />
+
       {soulmate && (
         <Link
           href="/memories"
@@ -160,9 +163,8 @@ export function HomeClient() {
         }
       />
 
-      <footer className="mt-10 text-xs text-ink-soft/60 dark:text-cream/30">
-        초대 코드 <span className="font-mono">{me.profile.referralCode}</span>
-      </footer>
+      {/* 초대 코드는 ReferralCard 가 링크 복사와 함께 보여준다. */}
+      <div className="h-10" />
     </Shell>
   );
 }

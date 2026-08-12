@@ -73,10 +73,10 @@ export class MissionsService {
         blockedReason: hasSoulmate ? null : '소울메이트를 먼저 만들어주세요.',
         streak: null,
       },
-      // 초대는 어뷰징 방어(하루 3명 / 누적 20명 / 초대받은 쪽 최소 활동)를 붙인 뒤에 연다.
-      // 목록에는 나오지 않는다 — ACTIVE_MISSION_CODES 가 걸러낸다.
-      referral_inviter: notYet('referral_inviter'),
-      referral_invitee: notYet('referral_invitee'),
+      // 초대는 누를 게 없다. 조건이 채워지는 순간 대화 처리 안에서 자동으로 나간다.
+      // 목록에도 안 나온다 — ACTIVE_MISSION_CODES 가 걸러낸다. 화면은 ReferralCard 담당.
+      referral_inviter: automatic('referral_inviter'),
+      referral_invitee: automatic('referral_invitee'),
     };
 
     return { missions: ACTIVE_MISSION_CODES.map((code) => states[code]) };
@@ -139,13 +139,14 @@ export class MissionsService {
   }
 }
 
-function notYet(code: MissionCode): MissionState {
+/** 버튼으로 받는 게 아니라 조건이 되면 알아서 들어오는 미션. */
+function automatic(code: MissionCode): MissionState {
   return {
     code,
     reward: MISSION_REWARDS[code],
     claimable: false,
     claimedAt: null,
-    blockedReason: '준비 중이에요.',
+    blockedReason: '조건을 채우면 자동으로 들어와요.',
     streak: null,
   };
 }

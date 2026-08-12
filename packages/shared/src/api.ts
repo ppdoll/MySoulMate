@@ -161,6 +161,38 @@ export interface ClaimMissionResponse {
   streak: number | null;
 }
 
+// ---------------------------------------------------------------- referrals
+
+export interface ReferralStatus {
+  /** 내 초대 코드. 링크로 만들어 공유한다. */
+  code: string;
+  /** 보상까지 간 인원. */
+  rewardedCount: number;
+  /** 코드는 넣었지만 아직 대화 조건을 못 채운 인원. */
+  pendingCount: number;
+  /** 오늘 더 지급될 수 있는 인원. 상한에 걸린 건은 사라지지 않고 다음 날로 밀린다. */
+  remainingToday: number;
+  /** 남은 누적 인원. */
+  remainingTotal: number;
+  /** 내가 초대받아 온 경우. 코드는 계정당 한 번만 넣을 수 있다. */
+  inviter: {
+    name: string | null;
+    rewarded: boolean;
+    /** 보상까지 남은 대화 턴 수. */
+    turnsLeft: number;
+  } | null;
+}
+
+export const EnterReferralSchema = z.object({
+  code: z.string().trim().min(1).max(16),
+});
+
+export type EnterReferralRequest = z.infer<typeof EnterReferralSchema>;
+
+export interface EnterReferralResponse {
+  inviterName: string | null;
+}
+
 // ---------------------------------------------------------------- billing
 
 export interface CheckoutResponse {

@@ -16,6 +16,7 @@ import {
 import { SupabaseService } from '../supabase/supabase.module';
 import { CreditsService } from '../credits/credits.service';
 import { GeminiService } from '../ai/gemini.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { ApiException } from '../common/api-exception';
 import { ModelBlockedError, ModelRateLimitedError } from '../ai/errors';
 import type { AuthUser } from '../auth/current-user.decorator';
@@ -64,6 +65,7 @@ export class ChatService {
     private readonly supabase: SupabaseService,
     private readonly credits: CreditsService,
     private readonly gemini: GeminiService,
+    private readonly referrals: ReferralsService,
   ) {}
 
   /**
@@ -136,6 +138,12 @@ export class ChatService {
         rest.trim() || answer,
         expression,
       );
+
+      // 초대 보상은 "초대받은 쪽이 실제로 대화했는지" 를 조건으로 걸어놨다.
+      // 그 조건이 바뀌는 순간이 방금이므로 여기서 정산한다.
+      // 잔액을 읽기 전에 불러야 보상이 붙은 잔액이 화면에 바로 뜬다.
+      await this.referrals.settle(user.id);
+
       const wallet = await this.credits.getWallet(user.id);
       yield { type: 'done', messageId, wallet, emotion: expression };
     } catch (err) {

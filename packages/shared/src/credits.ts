@@ -69,6 +69,22 @@ export type MissionCode = keyof typeof MISSION_REWARDS;
 export const MISSION_CODES = Object.keys(MISSION_REWARDS) as MissionCode[];
 
 /**
+ * 초대 어뷰징 방어.
+ *
+ * 크레딧이 공짜로 생기는 유일한 경로다. 구글 계정은 몇 분이면 만들 수 있어서
+ * 상한이 없으면 자기가 자기를 초대해 무한히 찍어낼 수 있다.
+ * (DB 쪽 방어는 supabase/migrations/20260812001400_referrals.sql 머리말에 정리해뒀다)
+ */
+export const REFERRAL_LIMITS = {
+  /** 초대자가 하루에 보상받을 수 있는 최대 인원. 넘은 건은 다음 날로 밀린다. */
+  perDay: 3,
+  /** 초대자가 누적으로 보상받을 수 있는 최대 인원. */
+  total: 20,
+  /** 초대받은 계정이 이만큼 대화해야 양쪽에 보상이 지급된다. */
+  inviteeMinChatTurns: 3,
+} as const;
+
+/**
  * 출석 연속 보너스.
  *
  * 매일 같은 양만 주면 하루 빠져도 잃는 게 없다. 연속이 끊긴다는 감각이 있어야
@@ -94,25 +110,23 @@ export const MISSION_META: Record<MissionCode, { title: string; hint: string }> 
     title: '소울메이트 만들기',
     hint: '처음 한 번만. 마음에 안 드는 모습을 다시 만들어 볼 수 있어요.',
   },
-  referral_inviter: { title: '친구 초대', hint: '준비 중이에요.' },
-  referral_invitee: { title: '초대받고 시작하기', hint: '준비 중이에요.' },
+  referral_inviter: {
+    title: '친구 초대',
+    hint: `친구가 ${REFERRAL_LIMITS.inviteeMinChatTurns}번 대화하면 자동으로 들어와요.`,
+  },
+  referral_invitee: {
+    title: '초대받고 시작하기',
+    hint: `${REFERRAL_LIMITS.inviteeMinChatTurns}번 대화하면 자동으로 들어와요.`,
+  },
 };
 
-/** 지금 화면에 내보내는 미션. 초대는 어뷰징 방어 설계가 끝나면 붙인다. */
-export const ACTIVE_MISSION_CODES: MissionCode[] = ['daily_check_in', 'onboarding_complete'];
-
 /**
- * 초대 어뷰징 방어.
- * 구글 계정은 만들기 쉬워서 상한이 없으면 자기 초대로 크레딧을 무한 생성할 수 있다.
+ * 버튼을 눌러서 받는 미션.
+ *
+ * 초대는 빠져 있다 — 누를 게 없어서다. 조건(초대받은 쪽의 대화)이 채워지는 순간
+ * 대화 처리 안에서 양쪽에 자동으로 들어간다. 화면은 ReferralCard 가 따로 맡는다.
  */
-export const REFERRAL_LIMITS = {
-  /** 초대자가 하루에 보상받을 수 있는 최대 인원. */
-  perDay: 3,
-  /** 초대자가 누적으로 보상받을 수 있는 최대 인원. */
-  total: 20,
-  /** 초대받은 계정이 이만큼 대화해야 양쪽에 보상이 지급된다. */
-  inviteeMinChatTurns: 3,
-} as const;
+export const ACTIVE_MISSION_CODES: MissionCode[] = ['daily_check_in', 'onboarding_complete'];
 
 /**
  * 판매 크레딧 팩.

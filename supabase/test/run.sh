@@ -150,5 +150,8 @@ psql_run -f "$ROOT/supabase/test/09_rejected.sql"
 echo "==> 검증 (미션 보상 / 출석 연속)"
 psql_run -f "$ROOT/supabase/test/10_missions.sql"
 
+echo "==> 검증 (친구 초대 / 어뷰징 방어)"
+psql_run -f "$ROOT/supabase/test/11_referrals.sql"
+
 echo
 echo "완료."
