@@ -66,7 +66,23 @@ export interface ProfileSummary {
   displayName: string | null;
   avatarUrl: string | null;
   referralCode: string;
+  /** 사용자가 직접 적은 소개. 소울메이트가 첫 대화부터 이걸 알고 시작한다. */
+  selfIntro: string | null;
 }
+
+/**
+ * 소개 길이 상한.
+ *
+ * 매 턴 시스템 프롬프트에 통째로 들어가므로 길이가 곧 비용이다.
+ * 500자면 대략 250토큰으로, 턴당 0.4원쯤 늘어난다.
+ */
+export const SELF_INTRO_MAX = 500;
+
+export const UpdateProfileSchema = z.object({
+  selfIntro: z.string().trim().max(SELF_INTRO_MAX),
+});
+
+export type UpdateProfileRequest = z.infer<typeof UpdateProfileSchema>;
 
 export interface MeResponse {
   profile: ProfileSummary;

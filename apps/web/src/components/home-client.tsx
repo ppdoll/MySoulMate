@@ -7,6 +7,7 @@ import type { MeResponse, SoulmateResponse } from '@mysoulmate/shared';
 import { ApiError, apiFetch } from '@/lib/api';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { SoulmateCard } from './soulmate-card';
+import { SelfIntroCard } from './self-intro-card';
 
 export function HomeClient() {
   const router = useRouter();
@@ -135,6 +136,14 @@ export function HomeClient() {
           </div>
         )}
       </div>
+
+      <SelfIntroCard
+        value={me.profile.selfIntro}
+        soulmateName={soulmate?.name ?? null}
+        onSaved={(selfIntro) =>
+          setMe((prev) => (prev ? { ...prev, profile: { ...prev.profile, selfIntro } } : prev))
+        }
+      />
 
       <footer className="mt-10 text-xs text-ink-soft/60 dark:text-cream/30">
         초대 코드 <span className="font-mono">{me.profile.referralCode}</span>

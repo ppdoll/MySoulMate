@@ -48,6 +48,8 @@ interface ConversationContext {
   summary: string;
   /** 사용자를 부를 이름. 구글 프로필에서 온다. */
   userName: string | null;
+  /** 사용자가 직접 적은 소개. */
+  selfIntro: string | null;
   /** 마지막 메시지 시각. 공백을 계산해 프롬프트에 넣는다. */
   lastMessageAt: Date | null;
 }
@@ -102,6 +104,7 @@ export class ChatService {
         tone: ctx.tone,
         summary,
         userName: ctx.userName,
+        selfIntro: ctx.selfIntro,
         timeContext: buildTimeContext(new Date(), ctx.lastMessageAt),
         memories,
       });
@@ -185,14 +188,14 @@ export class ChatService {
   private async loadContext(userId: string): Promise<ConversationContext> {
     const { data, error } = await this.supabase.client
       .from('soulmates')
-      .select('id, tone, persona, conversations(id, summary), profiles!inner(display_name)')
+      .select('id, tone, persona, conversations(id, summary), profiles!inner(display_name, self_intro)')
       .eq('user_id', userId)
       .maybeSingle<{
         id: string;
         tone: RelationshipTone;
         persona: unknown;
         conversations: { id: string; summary: string }[] | null;
-        profiles: { display_name: string | null } | null;
+        profiles: { display_name: string | null; self_intro: string | null } | null;
       }>();
 
     if (error) {
@@ -215,6 +218,7 @@ export class ChatService {
       tone: data.tone,
       summary: conversation.summary ?? '',
       userName: data.profiles?.display_name ?? null,
+      selfIntro: data.profiles?.self_intro ?? null,
       lastMessageAt: await this.lastMessageAt(conversation.id),
     };
   }

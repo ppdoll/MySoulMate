@@ -10,6 +10,7 @@ interface ProfileRow {
   display_name: string | null;
   avatar_url: string | null;
   referral_code: string;
+  self_intro: string | null;
 }
 
 @Injectable()
@@ -34,9 +35,24 @@ export class MeService {
       displayName: profile.display_name,
       avatarUrl: profile.avatar_url,
       referralCode: profile.referral_code,
+      selfIntro: profile.self_intro,
     };
 
     return { profile: summary, wallet, hasSoulmate, isAdmin: user.isAdmin };
+  }
+
+  /** 사용자 소개 저장. 빈 문자열이면 지운 것으로 본다. */
+  async updateSelfIntro(userId: string, selfIntro: string): Promise<void> {
+    const value = selfIntro.trim();
+    const { error } = await this.supabase.client
+      .from('profiles')
+      .update({ self_intro: value || null })
+      .eq('id', userId);
+
+    if (error) {
+      this.logger.error(`소개 저장 실패 [${error.code}] ${error.message}`);
+      throw ApiException.internal();
+    }
   }
 
   /**
@@ -67,7 +83,7 @@ export class MeService {
   private async fetchProfile(userId: string): Promise<ProfileRow | null> {
     const { data, error } = await this.supabase.client
       .from('profiles')
-      .select('id, display_name, avatar_url, referral_code')
+      .select('id, display_name, avatar_url, referral_code, self_intro')
       .eq('id', userId)
       .maybeSingle<ProfileRow>();
 
