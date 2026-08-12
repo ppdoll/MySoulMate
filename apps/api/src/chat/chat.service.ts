@@ -164,7 +164,7 @@ export class ChatService {
    */
   async undoLastTurn(userId: string): Promise<void> {
     const ctx = await this.loadContext(userId);
-    const text = await this.deleteLastTurn(ctx.conversationId);
+    const text = await this.deleteLastTurn(ctx, 'undo');
     if (text === null) throw ApiException.notFound('되돌릴 대화가 없어요.');
   }
 
@@ -194,7 +194,7 @@ export class ChatService {
       }
     }
 
-    const text = await this.deleteLastTurn(ctx.conversationId);
+    const text = await this.deleteLastTurn(ctx, 'regenerate');
 
     if (text === null) {
       yield { type: 'error', code: 'not_found', message: '다시 답할 대화가 없어요.' };
@@ -206,12 +206,18 @@ export class ChatService {
   /**
    * 마지막 턴(사용자 말 + 응답) 두 줄을 지우고 사용자가 했던 말을 돌려준다.
    * 지울 게 없으면 null.
+   *
+   * 지우기 전에 rejected_messages 에 남긴다 — 되돌렸다는 건 그 응답이 실패했다는
+   * 뜻이고, 그게 프롬프트를 고칠 때 쓸 수 있는 유일한 공짜 신호다.
    */
-  private async deleteLastTurn(conversationId: string): Promise<string | null> {
+  private async deleteLastTurn(
+    ctx: ConversationContext,
+    action: 'undo' | 'regenerate',
+  ): Promise<string | null> {
     const { data, error } = await this.supabase.client
       .from('messages')
-      .select('id, role, content')
-      .eq('conversation_id', conversationId)
+      .select('id, role, content, emotion')
+      .eq('conversation_id', ctx.conversationId)
       .order('seq', { ascending: false })
       .limit(2);
 
@@ -222,7 +228,12 @@ export class ChatService {
 
     // persistTurn 이 두 줄을 한 번에 넣으므로 정상 상태면 [응답, 질문] 순이다.
     // 한쪽만 있는 경우는 저장이 깨진 것이라 건드리지 않는다.
-    const rows = (data ?? []) as { id: string; role: string; content: string }[];
+    const rows = (data ?? []) as {
+      id: string;
+      role: string;
+      content: string;
+      emotion: string | null;
+    }[];
     const answer = rows.find((r) => r.role === 'assistant');
     const question = rows.find((r) => r.role === 'user');
     if (!answer || !question) return null;
@@ -236,7 +247,37 @@ export class ChatService {
       this.logger.error(`마지막 턴 삭제 실패 [${deleteError.code}] ${deleteError.message}`);
       throw ApiException.internal();
     }
+
+    await this.recordRejection(ctx.soulmateId, action, question.content, answer);
     return question.content;
+  }
+
+  /**
+   * 실패한 응답을 남긴다.
+   *
+   * 실제로 지워진 뒤에만 부른다 — 삭제가 실패했는데 기록만 남으면
+   * 있지도 않은 실패를 세게 된다.
+   *
+   * 여기서 실패해도 되돌리기 자체는 성공한 것으로 둔다. 진단용 기록 때문에
+   * 사용자 동작을 막을 이유가 없다.
+   */
+  private async recordRejection(
+    soulmateId: string,
+    action: 'undo' | 'regenerate',
+    userText: string,
+    answer: { content: string; emotion: string | null },
+  ): Promise<void> {
+    const { error } = await this.supabase.client.from('rejected_messages').insert({
+      soulmate_id: soulmateId,
+      action,
+      user_text: userText,
+      answer: answer.content,
+      emotion: answer.emotion,
+    });
+
+    if (error) {
+      this.logger.warn(`되돌린 응답 기록 실패 [${error.code}] ${error.message}`);
+    }
   }
 
   async history(userId: string, before?: string): Promise<ChatHistoryResponse> {

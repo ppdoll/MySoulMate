@@ -179,6 +179,30 @@ pgvector가 없어도 스크립트는 돌아간다 — `memories.embedding`을 `
 
 ---
 
+## 5. 되돌려진 응답 보기 (운영)
+
+사용자가 `되돌리기` 나 `다시 답하기` 를 누르면 그 응답이 `rejected_messages` 에 남는다.
+"이 응답은 실패했다"를 사용자가 직접 달아준 라벨이라, 프롬프트를 감이 아니라 근거로 고칠 수 있다.
+Supabase SQL Editor에서:
+
+```sql
+select r.created_at at time zone 'Asia/Seoul' as 시각,
+       r.action, s.tone, r.emotion,
+       r.user_text as 사용자, r.answer as 응답
+  from public.rejected_messages r
+  join public.soulmates s on s.id = r.soulmate_id
+ order by r.created_at desc
+ limit 50;
+```
+
+`action = 'regenerate'` 가 더 강한 불만이다 — 크레딧을 더 내고서라도 바꾸고 싶었다는 뜻이라서.
+같은 감정 태그나 같은 톤에서 반복해서 나온다면 그 구간의 프롬프트를 의심한다.
+
+기록은 소울메이트를 지우면(다시 만들기 포함) 함께 사라진다.
+사용자 대화 내용이 남는 것이므로 **개인정보처리방침(M7)에 반드시 명시해야 한다.**
+
+---
+
 ## 현재 상태
 
 완료

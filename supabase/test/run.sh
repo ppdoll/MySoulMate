@@ -144,5 +144,8 @@ psql_run -f "$ROOT/supabase/test/07_memories.sql"
 echo "==> 검증 (기억 고정)"
 psql_run -f "$ROOT/supabase/test/08_memory_pin.sql"
 
+echo "==> 검증 (되돌린 응답 기록)"
+psql_run -f "$ROOT/supabase/test/09_rejected.sql"
+
 echo
 echo "완료."
