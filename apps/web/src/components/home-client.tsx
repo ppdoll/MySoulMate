@@ -8,6 +8,7 @@ import { ApiError, apiFetch } from '@/lib/api';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { SoulmateCard } from './soulmate-card';
 import { SelfIntroCard } from './self-intro-card';
+import { MissionsCard } from './missions-card';
 
 export function HomeClient() {
   const router = useRouter();
@@ -136,6 +137,10 @@ export function HomeClient() {
           </div>
         )}
       </div>
+
+      <MissionsCard
+        onWallet={(wallet) => setMe((prev) => (prev ? { ...prev, wallet } : prev))}
+      />
 
       {soulmate && (
         <Link

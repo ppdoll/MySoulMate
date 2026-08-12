@@ -69,6 +69,39 @@ export type MissionCode = keyof typeof MISSION_REWARDS;
 export const MISSION_CODES = Object.keys(MISSION_REWARDS) as MissionCode[];
 
 /**
+ * 출석 연속 보너스.
+ *
+ * 매일 같은 양만 주면 하루 빠져도 잃는 게 없다. 연속이 끊긴다는 감각이 있어야
+ * 돌아올 이유가 된다.
+ *
+ * 완주 한 주 = 5 x 7 + 10 = 45 크레딧. 아바타 재생성(10) 네 번쯤이라
+ * 이미지 생성 비용에 직결된다. 무료 충전을 늘리거나 줄이려면 여기만 고친다.
+ */
+export const CHECKIN_STREAK = {
+  /** 이 일수마다 보너스가 붙는다. */
+  bonusEvery: 7,
+  /** 그날 기본 보상에 더해 받는 양. */
+  bonus: 10,
+} as const;
+
+/** 화면에 쓰는 문구. api와 web이 같은 말을 하도록 여기 둔다. */
+export const MISSION_META: Record<MissionCode, { title: string; hint: string }> = {
+  daily_check_in: {
+    title: '오늘의 출석',
+    hint: `매일 받을 수 있어요. ${CHECKIN_STREAK.bonusEvery}일 연속이면 ${CHECKIN_STREAK.bonus} 크레딧이 더 붙어요.`,
+  },
+  onboarding_complete: {
+    title: '소울메이트 만들기',
+    hint: '처음 한 번만. 마음에 안 드는 모습을 다시 만들어 볼 수 있어요.',
+  },
+  referral_inviter: { title: '친구 초대', hint: '준비 중이에요.' },
+  referral_invitee: { title: '초대받고 시작하기', hint: '준비 중이에요.' },
+};
+
+/** 지금 화면에 내보내는 미션. 초대는 어뷰징 방어 설계가 끝나면 붙인다. */
+export const ACTIVE_MISSION_CODES: MissionCode[] = ['daily_check_in', 'onboarding_complete'];
+
+/**
  * 초대 어뷰징 방어.
  * 구글 계정은 만들기 쉬워서 상한이 없으면 자기 초대로 크레딧을 무한 생성할 수 있다.
  */

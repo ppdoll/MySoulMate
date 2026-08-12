@@ -1,6 +1,6 @@
 ﻿import { Injectable, Logger } from '@nestjs/common';
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { CreditReason, WalletState } from '@mysoulmate/shared';
+import { CHECKIN_STREAK, MISSION_REWARDS, type CreditReason, type WalletState } from '@mysoulmate/shared';
 import { AppConfig } from '../config/app-config';
 import { SupabaseService } from '../supabase/supabase.module';
 import { ApiException } from '../common/api-exception';
@@ -197,6 +197,46 @@ export class CreditsService {
 
     const row = data as { granted: number; wallet: WalletRow };
     return { granted: row.granted, wallet: this.toWalletState(row.wallet) };
+  }
+
+  /**
+   * 일일 출석. claim_mission 위에 연속 계산을 얹은 함수를 부른다.
+   *
+   * 연속을 애플리케이션에서 세지 않는 이유는 잔액과 같다 — 읽고 계산해서 쓰는 사이에
+   * 다른 요청이 끼어들면 하루에 두 번 올라간다.
+   */
+  async claimDailyCheckin(
+    userId: string,
+  ): Promise<{ granted: number; wallet: WalletState; streak: number }> {
+    const { data, error } = await this.supabase.client.rpc('claim_daily_checkin', {
+      p_user: userId,
+      p_base: MISSION_REWARDS.daily_check_in,
+      p_bonus: CHECKIN_STREAK.bonus,
+      p_bonus_every: CHECKIN_STREAK.bonusEvery,
+    });
+
+    if (error?.code === PG_ALREADY_CLAIMED) {
+      throw ApiException.alreadyClaimed('오늘 출석은 이미 받았어요.');
+    }
+    this.rethrow(error, 'claim_daily_checkin');
+
+    const row = data as { granted: number; wallet: WalletRow; streak: number };
+    return {
+      granted: row.granted,
+      wallet: this.toWalletState(row.wallet),
+      streak: row.streak,
+    };
+  }
+
+  /** 출석 현황. 연속이 끊겼는지 판단은 DB가 한다(오늘 날짜 기준이라). */
+  async checkinState(userId: string): Promise<{ claimedToday: boolean; streak: number }> {
+    const { data, error } = await this.supabase.client.rpc('get_checkin_state', {
+      p_user: userId,
+    });
+    this.rethrow(error, 'get_checkin_state');
+
+    const row = data as { claimed_today: boolean; streak: number };
+    return { claimedToday: row.claimed_today, streak: row.streak };
   }
 
   private rethrow(error: PostgrestError | null, fn: string): void {

@@ -147,5 +147,8 @@ psql_run -f "$ROOT/supabase/test/08_memory_pin.sql"
 echo "==> 검증 (되돌린 응답 기록)"
 psql_run -f "$ROOT/supabase/test/09_rejected.sql"
 
+echo "==> 검증 (미션 보상 / 출석 연속)"
+psql_run -f "$ROOT/supabase/test/10_missions.sql"
+
 echo
 echo "완료."

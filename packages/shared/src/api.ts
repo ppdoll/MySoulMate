@@ -138,16 +138,27 @@ export interface SoulmateResponse {
 
 export interface MissionState {
   code: MissionCode;
+  /** 지금 누르면 받을 양. 출석은 연속 보너스가 붙는 날 더 크다. */
   reward: number;
   /** 지금 수령할 수 있는지. */
   claimable: boolean;
   /** 이미 받았다면 언제 받았는지. */
   claimedAt: string | null;
+  /** 못 받는 이유. 이미 받은 경우가 아니라 조건을 아직 못 채운 경우에만 채운다. */
+  blockedReason: string | null;
+  /** 출석에만 있다. 지금까지 며칠 연속인지. */
+  streak: number | null;
+}
+
+export interface MissionsResponse {
+  missions: MissionState[];
 }
 
 export interface ClaimMissionResponse {
   granted: number;
   wallet: WalletState;
+  /** 출석이면 이번에 며칠째가 됐는지. */
+  streak: number | null;
 }
 
 // ---------------------------------------------------------------- billing

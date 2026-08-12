@@ -7,6 +7,7 @@ import { MeModule } from './me/me.module';
 import { SoulmateModule } from './soulmate/soulmate.module';
 import { ChatModule } from './chat/chat.module';
 import { MemoriesModule } from './memories/memories.module';
+import { MissionsModule } from './missions/missions.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MemoriesModule } from './memories/memories.module';
     SoulmateModule,
     ChatModule,
     MemoriesModule,
+    MissionsModule,
   ],
   controllers: [HealthController],
 })
