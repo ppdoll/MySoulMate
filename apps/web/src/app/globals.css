@@ -56,6 +56,29 @@ body {
   }
 }
 
+/*
+  설치 상태(standalone)의 안전 영역.
+
+  viewport-fit=cover 로 화면 끝까지 그리기 때문에, 가장자리에 붙은 요소는
+  노치와 홈 인디케이터를 직접 비켜줘야 한다. 안 그러면 iOS 에서 대화 입력창이
+  홈 인디케이터에 가려 눌리지 않는다.
+
+  브라우저에서 볼 때 env() 값은 0 이라 평소 여백만 남는다 — 두 경우가 같은 코드로 돈다.
+*/
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+/* 스크롤되는 일반 화면. 상태바 아래에서 시작하고 끝에서도 잘리지 않게 둔다. */
+.safe-page {
+  padding-top: max(3rem, calc(env(safe-area-inset-top) + 1.5rem));
+  padding-bottom: max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem));
+}
+
 /* 정지 이미지에 생기를 주는 아주 느린 호흡. 눈에 띄면 실패다. */
 @keyframes soulmate-breathe {
   0%,

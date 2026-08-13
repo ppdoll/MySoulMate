@@ -76,7 +76,7 @@ export function MemoriesView() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-6 py-12">
+    <main className="safe-page mx-auto w-full max-w-md px-6">
       <header className="flex items-baseline justify-between">
         <h1 className="text-xl font-semibold">기억</h1>
         <Link

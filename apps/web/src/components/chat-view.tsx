@@ -290,7 +290,7 @@ export function ChatView() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 via-black/40 to-transparent" />
 
       {/* 통화 헤더 */}
-      <header className="absolute inset-x-0 top-0 flex items-center gap-3 px-5 pt-4 text-white">
+      <header className="safe-top absolute inset-x-0 top-0 flex items-center gap-3 px-5 text-white">
         <Link href="/home" aria-label="나가기" className="text-xl leading-none">
           ←
         </Link>
@@ -357,7 +357,8 @@ export function ChatView() {
       )}
 
       {/* 입력 바 */}
-      <div className="absolute inset-x-0 bottom-0 flex items-end gap-2 px-4 pb-5">
+      {/* 설치 상태에서는 홈 인디케이터를 비켜야 한다. 안 그러면 보내기가 안 눌린다. */}
+      <div className="safe-bottom absolute inset-x-0 bottom-0 flex items-end gap-2 px-4">
         <button
           type="button"
           onClick={() => setHistoryOpen(true)}

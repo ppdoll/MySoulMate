@@ -23,7 +23,7 @@ export function LegalDoc({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-12">
+    <main className="safe-page mx-auto w-full max-w-2xl px-6">
       <Link
         href="/"
         className="text-sm text-ink-soft underline-offset-4 hover:underline dark:text-cream/50"

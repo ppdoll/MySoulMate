@@ -11,6 +11,7 @@ import { SelfIntroCard } from './self-intro-card';
 import { MissionsCard } from './missions-card';
 import { ReferralCard } from './referral-card';
 import { AccountFooter } from './account-footer';
+import { InstallPrompt } from './install-prompt';
 
 export function HomeClient() {
   const router = useRouter();
@@ -164,13 +165,15 @@ export function HomeClient() {
         }
       />
 
+      <InstallPrompt />
+
       <AccountFooter />
     </Shell>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="mx-auto w-full max-w-md px-6 py-12">{children}</main>;
+  return <main className="safe-page mx-auto w-full max-w-md px-6">{children}</main>;
 }
 
 function formatReset(iso: string): string {

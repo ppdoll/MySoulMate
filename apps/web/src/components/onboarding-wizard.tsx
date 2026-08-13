@@ -88,7 +88,7 @@ export function OnboardingWizard() {
   const isLast = step === total - 1;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 py-10">
+    <main className="safe-page mx-auto flex min-h-dvh w-full max-w-md flex-col px-6">
       <Progress current={step + 1} total={total} />
 
       <div className="mt-8 flex-1">
