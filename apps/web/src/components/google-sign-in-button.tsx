@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
-export function GoogleSignInButton() {
+/** `disabled` 는 가입 동의를 아직 다 확인하지 않은 상태에서 넘어온다. */
+export function GoogleSignInButton({ disabled = false }: { disabled?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function signIn() {
+    if (disabled) return;
     setLoading(true);
     setError(null);
 
@@ -29,8 +31,8 @@ export function GoogleSignInButton() {
       <button
         type="button"
         onClick={signIn}
-        disabled={loading}
-        className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-black/10 bg-white px-6 py-3.5 text-[15px] font-medium text-ink shadow-sm transition hover:shadow-md disabled:opacity-60 dark:border-white/15 dark:bg-night-soft dark:text-cream"
+        disabled={loading || disabled}
+        className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-black/10 bg-white px-6 py-3.5 text-[15px] font-medium text-ink shadow-sm transition hover:shadow-md disabled:opacity-40 disabled:shadow-none dark:border-white/15 dark:bg-night-soft dark:text-cream"
       >
         <GoogleMark />
         {loading ? '이동하는 중…' : '구글로 계속하기'}

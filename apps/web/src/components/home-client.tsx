@@ -10,6 +10,7 @@ import { SoulmateCard } from './soulmate-card';
 import { SelfIntroCard } from './self-intro-card';
 import { MissionsCard } from './missions-card';
 import { ReferralCard } from './referral-card';
+import { AccountFooter } from './account-footer';
 
 export function HomeClient() {
   const router = useRouter();
@@ -163,8 +164,7 @@ export function HomeClient() {
         }
       />
 
-      {/* 초대 코드는 ReferralCard 가 링크 복사와 함께 보여준다. */}
-      <div className="h-10" />
+      <AccountFooter />
     </Shell>
   );
 }

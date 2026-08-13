@@ -1,6 +1,7 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { GoogleSignInButton } from '@/components/google-sign-in-button';
+import { ConsentGate } from '@/components/consent-gate';
 import { ReferralCatcher } from '@/components/referral-catcher';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -47,14 +48,19 @@ export default async function LandingPage({
         </p>
 
         <div className="mt-10 w-full">
-          <GoogleSignInButton />
+          <ConsentGate />
         </div>
 
         {errorMessage && <p className="mt-4 text-sm text-blush-deep">{errorMessage}</p>}
 
-        <p className="mt-8 text-xs leading-relaxed text-ink-soft/70 dark:text-cream/40">
-          계속하면 이용약관과 개인정보처리방침에 동의하는 것으로 봅니다.
-        </p>
+        <nav className="mt-8 flex gap-4 text-xs text-ink-soft/70 dark:text-cream/40">
+          <Link href="/terms" className="underline underline-offset-2">
+            이용약관
+          </Link>
+          <Link href="/privacy" className="underline underline-offset-2">
+            개인정보 처리방침
+          </Link>
+        </nav>
       </div>
     </main>
   );
