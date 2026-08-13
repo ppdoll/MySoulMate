@@ -63,12 +63,13 @@ export const PRESET_CHARACTERS = [
     vibe: 'calm',
     presentation: 'masculine',
   },
-  /*
-    m_chic 은 아직 없다. `img/SoulMate/m_chic_normal.png` 가 빠져 있어서다
-    (happy / playful / worried 는 있다). neutral 은 표정을 못 찾을 때 돌아오는
-    자리라 그것부터 없으면 카드가 빈 칸으로 뜬다.
-    파일을 넣고 presets:optimize 를 돌린 뒤 여기에 한 항목만 더하면 된다.
-  */
+  {
+    id: 'm_chic',
+    label: '시크한',
+    description: '또렷하고 도시적인 인상',
+    vibe: 'chic',
+    presentation: 'masculine',
+  },
 ] as const satisfies readonly {
   id: string;
   label: string;

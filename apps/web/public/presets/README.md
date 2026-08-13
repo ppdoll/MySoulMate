@@ -20,17 +20,17 @@ img/SoulMate/w_bright_normal.png  ->  public/presets/w_bright/neutral.webp
 img/SoulMate/m_calm_happy.png     ->  public/presets/m_calm/happy.webp
 ```
 
+**8프리셋 × 4표정 = 32장**
+
 | 프리셋 | 성별 | 분위기 | 어울리는 타입 |
 | --- | --- | --- | --- |
 | `w_bright` / `m_bright` | 여성 / 남성 | 밝고 산뜻한 | 햇살, 장난 |
 | `w_warm` / `m_warm` | 여성 / 남성 | 따뜻하고 포근한 | 잔잔 |
 | `w_calm` / `m_calm` | 여성 / 남성 | 차분하고 지적인 | 든든 |
-| `w_chic` | 여성 | 시크하고 도시적인 | 고요 |
+| `w_chic` / `m_chic` | 여성 / 남성 | 시크하고 도시적인 | 고요 |
 
-**`m_chic` 은 아직 없다.** `m_chic_normal.png` 가 빠져 있다(happy·playful·worried 는 있다).
-`neutral` 은 표정을 못 찾을 때 돌아오는 자리라 그것부터 없으면 카드가 빈 칸으로 뜬다.
-파일을 넣고 위 스크립트를 돌린 뒤 `packages/shared/src/presets.ts` 의
-`PRESET_CHARACTERS` 에 한 항목만 더하면 된다.
+프리셋을 추가하려면 원본을 `img/SoulMate/` 에 넣고 위 스크립트를 돌린 뒤
+`packages/shared/src/presets.ts` 의 `PRESET_CHARACTERS` 에 한 항목을 더한다.
 
 스크립트는 필요한 목록을 `PRESET_CHARACTERS × EXPRESSIONS` 에서 가져오므로,
 빠진 파일이 있으면 끝에 이름을 찍어준다. 손으로 복사·개명하지 않는다 —
