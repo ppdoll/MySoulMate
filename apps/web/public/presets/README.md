@@ -5,24 +5,36 @@
 
 ## 필요한 파일
 
-**4캐릭터 × 4표정 = 16장**
+원본 PNG는 저장소 루트의 **`img/SoulMate/`** 에 넣는다. 이 폴더(`public/presets/`)에는
+스크립트가 만든 WebP만 들어간다.
 
-```
-bright/   neutral.png  happy.png  worried.png  playful.png
-warm/     neutral.png  happy.png  worried.png  playful.png
-calm/     neutral.png  happy.png  worried.png  playful.png
-chic/     neutral.png  happy.png  worried.png  playful.png
+```bash
+pnpm --filter @mysoulmate/web presets:optimize
 ```
 
-| 폴더 | 분위기 | 어울리는 타입 |
-| --- | --- | --- |
-| `bright` | 밝고 산뜻한 | 햇살, 장난 |
-| `warm` | 따뜻하고 포근한 | 잔잔 |
-| `calm` | 차분하고 지적인 | 든든 |
-| `chic` | 시크하고 도시적인 | 고요 |
+원본 파일명은 `{성별}_{분위기}_{표정}.png` 다. `w` = 여성, `m` = 남성.
+표정은 `normal` / `happy` / `worried` / `playful` — `normal` 이 코드의 `neutral` 이 된다.
 
-폴더 이름은 `packages/shared/src/presets.ts` 의 `PRESET_CHARACTERS` 와 일치해야 한다.
-캐릭터 4명의 성별 구성은 자유다 — 코드는 상관하지 않는다.
+```
+img/SoulMate/w_bright_normal.png  ->  public/presets/w_bright/neutral.webp
+img/SoulMate/m_calm_happy.png     ->  public/presets/m_calm/happy.webp
+```
+
+| 프리셋 | 성별 | 분위기 | 어울리는 타입 |
+| --- | --- | --- | --- |
+| `w_bright` / `m_bright` | 여성 / 남성 | 밝고 산뜻한 | 햇살, 장난 |
+| `w_warm` / `m_warm` | 여성 / 남성 | 따뜻하고 포근한 | 잔잔 |
+| `w_calm` / `m_calm` | 여성 / 남성 | 차분하고 지적인 | 든든 |
+| `w_chic` | 여성 | 시크하고 도시적인 | 고요 |
+
+**`m_chic` 은 아직 없다.** `m_chic_normal.png` 가 빠져 있다(happy·playful·worried 는 있다).
+`neutral` 은 표정을 못 찾을 때 돌아오는 자리라 그것부터 없으면 카드가 빈 칸으로 뜬다.
+파일을 넣고 위 스크립트를 돌린 뒤 `packages/shared/src/presets.ts` 의
+`PRESET_CHARACTERS` 에 한 항목만 더하면 된다.
+
+스크립트는 필요한 목록을 `PRESET_CHARACTERS × EXPRESSIONS` 에서 가져오므로,
+빠진 파일이 있으면 끝에 이름을 찍어준다. 손으로 복사·개명하지 않는다 —
+그렇게 하다가 `m_chic_normal.png` 누락을 놓쳤다.
 
 ## 만드는 순서가 중요하다
 
@@ -61,14 +73,14 @@ No text, no watermark, no signature.
 
 ## 캐릭터별 프롬프트
 
-### 1단계 — 기본(neutral) 4장
+### 1단계 — 기본(normal) 한 장씩
 
-| 폴더 | 성별 | 배경색 |
+| 프리셋 | 성별 | 배경색 |
 | --- | --- | --- |
-| `bright` | 여성 | 밝은 크림 |
-| `warm` | 남성 | 따뜻한 베이지 |
-| `calm` | 여성 | 차분한 회청색 |
-| `chic` | 남성 | 짙은 차콜 |
+| `w_bright` / `m_bright` | 여성 / 남성 | 밝은 크림 |
+| `w_warm` / `m_warm` | 여성 / 남성 | 따뜻한 베이지 |
+| `w_calm` / `m_calm` | 여성 / 남성 | 차분한 회청색 |
+| `w_chic` / `m_chic` | 여성 / 남성 | 짙은 차콜 |
 
 ```
 Upper-body portrait of an adult woman in her late twenties, facing the viewer.

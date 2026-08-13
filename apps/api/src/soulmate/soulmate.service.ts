@@ -56,11 +56,16 @@ export class SoulmateService {
     // Storage 경로에 id가 필요해서 행보다 먼저 만든다.
     const soulmateId = randomUUID();
 
+    const preset = getPreset(answers.presetId);
     const appearance: Appearance = AppearanceSchema.parse({
       archetype: answers.archetype,
-      // 성별 표현은 고른 프리셋 캐릭터에서 가져온다. 따로 묻지 않는다.
-      presentation: getPreset(answers.presetId).presentation,
-      vibe: vibeForArchetype(answers.archetype),
+      // 성별 표현과 분위기는 고른 프리셋에서 가져온다. 따로 묻지 않는다.
+      //
+      // 타입(archetype)에도 추천 분위기가 있지만 그걸 쓰지 않는다.
+      // 사용자가 추천과 다른 모습을 골랐다면 화면에 보이는 쪽이 사실이고,
+      // 나중에 AI 로 모습을 만들 때 기준이 되는 것도 그쪽이다.
+      presentation: preset.presentation,
+      vibe: preset.vibe,
       presetId: answers.presetId,
     });
 
@@ -208,9 +213,10 @@ export class SoulmateService {
     if (patch.presetId) {
       const preset = getPreset(patch.presetId);
       appearancePatch.presetId = patch.presetId;
-      // 프리셋 id 는 외형 분위기와 같은 값이다(presets.ts 참고).
-      // 나중에 AI로 모습을 만들 때 기준이 되므로 함께 옮긴다.
-      appearancePatch.vibe = patch.presetId;
+      // 분위기와 성별 표현은 프리셋에 딸린 값이다. 나중에 AI 로 모습을 만들 때
+      // 기준이 되므로 함께 옮긴다 — 안 옮기면 남성 프리셋을 골라놓고
+      // 이미지 생성에는 여성 프롬프트가 들어간다.
+      appearancePatch.vibe = preset.vibe;
       appearancePatch.presentation = preset.presentation;
     }
 

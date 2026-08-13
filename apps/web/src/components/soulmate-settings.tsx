@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import {
-  PRESET_CHARACTERS,
+  PRESENTATION_META,
   RELATIONSHIP_TONES,
   RELATIONSHIP_TONE_META,
   SPEECH_STYLES,
   SPEECH_STYLE_META,
   presetImagePath,
+  presetsByPresentation,
   type PresetId,
   type RelationshipTone,
   type SoulmateResponse,
@@ -107,24 +108,34 @@ export function SoulmateSettings({
 
       <p className="mt-4 text-xs text-ink-soft dark:text-cream/60">모습</p>
       {presetEditable ? (
-        <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-          {PRESET_CHARACTERS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPresetId(p.id)}
-              className={`overflow-hidden rounded-lg border-2 ${
-                presetId === p.id ? 'border-blush' : 'border-transparent opacity-60'
-              }`}
-            >
-              {/* 정적 프리셋이라 Next 이미지 최적화를 태우지 않는다. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={presetImagePath(p.id, 'neutral')}
-                alt={p.label}
-                className="aspect-square w-full object-cover"
-              />
-            </button>
+        <div className="mt-1.5 space-y-2">
+          {presetsByPresentation().map((group) => (
+            <div key={group.presentation}>
+              <p className="mb-1 text-[11px] text-ink-soft/70 dark:text-cream/40">
+                {PRESENTATION_META[group.presentation].label}
+              </p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {group.characters.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPresetId(p.id)}
+                    title={p.label}
+                    className={`overflow-hidden rounded-lg border-2 ${
+                      presetId === p.id ? 'border-blush' : 'border-transparent opacity-60'
+                    }`}
+                  >
+                    {/* 정적 프리셋이라 Next 이미지 최적화를 태우지 않는다. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={presetImagePath(p.id, 'neutral')}
+                      alt={p.label}
+                      className="aspect-square w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : (

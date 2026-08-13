@@ -7,46 +7,80 @@ import type { AppearanceVibe, Presentation } from './persona';
  * 온보딩에서 생성 실패가 없고 비용도 들지 않는다.
  * "AI로 만든 나만의 모습" 은 프리셋과 구분되는 유료 상품이 된다.
  *
- * ID를 외형 분위기(AppearanceVibe)와 같은 값으로 맞춘 이유:
- * 온보딩에서 고른 타입이 이미 분위기를 정하므로, 그에 맞는 프리셋을
- * 기본 선택으로 띄울 수 있다. 새 분류를 만들 필요가 없다.
+ * ID 는 `{성별}_{분위기}` 다. 원본 이미지 파일명(`img/SoulMate/w_bright_normal.png`)과
+ * 같은 규칙이라, 파일을 넣고 변환 스크립트를 돌리는 것 말고 옮겨 적을 일이 없다.
+ *
+ * 처음에는 ID 를 분위기(AppearanceVibe)와 같은 값으로 뒀지만, 성별 표현이 둘이 되면서
+ * 그 규칙으로는 `bright` 가 두 캐릭터를 가리키게 된다. 그래서 분위기를 별도 필드로 뺐다.
  */
 export const PRESET_CHARACTERS = [
   {
-    id: 'bright',
+    id: 'w_bright',
     label: '산뜻한',
     description: '환하게 웃는 인상',
+    vibe: 'bright',
     presentation: 'feminine',
   },
   {
-    id: 'warm',
+    id: 'w_warm',
     label: '포근한',
     description: '부드럽고 따뜻한 인상',
+    vibe: 'warm',
     presentation: 'feminine',
   },
   {
-    id: 'calm',
+    id: 'w_calm',
     label: '단정한',
     description: '차분하고 지적인 인상',
+    vibe: 'calm',
     presentation: 'feminine',
   },
   {
-    id: 'chic',
+    id: 'w_chic',
     label: '시크한',
     description: '또렷하고 도시적인 인상',
+    vibe: 'chic',
     presentation: 'feminine',
   },
+  {
+    id: 'm_bright',
+    label: '산뜻한',
+    description: '환하게 웃는 인상',
+    vibe: 'bright',
+    presentation: 'masculine',
+  },
+  {
+    id: 'm_warm',
+    label: '포근한',
+    description: '부드럽고 따뜻한 인상',
+    vibe: 'warm',
+    presentation: 'masculine',
+  },
+  {
+    id: 'm_calm',
+    label: '단정한',
+    description: '차분하고 지적인 인상',
+    vibe: 'calm',
+    presentation: 'masculine',
+  },
+  /*
+    m_chic 은 아직 없다. `img/SoulMate/m_chic_normal.png` 가 빠져 있어서다
+    (happy / playful / worried 는 있다). neutral 은 표정을 못 찾을 때 돌아오는
+    자리라 그것부터 없으면 카드가 빈 칸으로 뜬다.
+    파일을 넣고 presets:optimize 를 돌린 뒤 여기에 한 항목만 더하면 된다.
+  */
 ] as const satisfies readonly {
-  id: AppearanceVibe;
+  id: string;
   label: string;
   description: string;
+  /** 외형 분위기. AI 로 모습을 만들 때 프롬프트의 방향이 된다. */
+  vibe: AppearanceVibe;
   /**
    * 이 캐릭터의 성별 표현.
    *
    * 온보딩에서 따로 묻지 않고 여기서 가져온다.
    * 프리셋 이미지가 이미 정해져 있는데 "남성적인/여성적인" 을 또 물으면
    * 고른 그림과 답이 어긋날 수 있다.
-   * 남성 캐릭터를 추가하면 여기만 바꾸면 된다.
    */
   presentation: Presentation;
 }[];
@@ -54,6 +88,22 @@ export const PRESET_CHARACTERS = [
 export type PresetId = (typeof PRESET_CHARACTERS)[number]['id'];
 
 export const PRESET_IDS = PRESET_CHARACTERS.map((p) => p.id) as [PresetId, ...PresetId[]];
+
+/** 성별 표현별로 묶은 목록. 선택 화면이 그룹으로 그려진다. */
+export function presetsByPresentation(): {
+  presentation: Presentation;
+  characters: typeof PRESET_CHARACTERS;
+}[] {
+  const order: Presentation[] = ['feminine', 'masculine', 'neutral'];
+  return order
+    .map((presentation) => ({
+      presentation,
+      characters: PRESET_CHARACTERS.filter(
+        (p) => p.presentation === presentation,
+      ) as unknown as typeof PRESET_CHARACTERS,
+    }))
+    .filter((group) => group.characters.length > 0);
+}
 
 /**
  * 표정. 대화 중 감정에 따라 교체된다.

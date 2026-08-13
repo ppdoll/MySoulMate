@@ -6,12 +6,12 @@ import {
   ARCHETYPES,
   ONBOARDING_QUESTION_LIST,
   OnboardingAnswersSchema,
-  PRESET_CHARACTERS,
+  PRESENTATION_META,
   defaultsForArchetype,
   presetImagePath,
+  presetsByPresentation,
   vibeForArchetype,
   type ArchetypeValue,
-  type PresetId,
   type OnboardingAnswers,
   type OnboardingQuestion,
   type SoulmateResponse,
@@ -36,15 +36,17 @@ export function OnboardingWizard() {
   }
 
   /**
-   * 타입을 고르면 성격 3축 기본값과 어울리는 프리셋을 함께 채워둔다.
-   * 프리셋 ID가 외형 분위기와 같은 값이라 그대로 매칭된다. 사용자는 나중에 바꿀 수 있다.
+   * 타입을 고르면 성격 3축 기본값을 함께 채워둔다.
+   *
+   * 프리셋은 미리 고르지 않는다. 예전에는 타입의 추천 분위기를 그대로 프리셋 ID 로
+   * 썼는데, 남성 캐릭터가 생긴 뒤로 그렇게 하면 성별 표현까지 대신 정해버린다.
+   * 추천은 프리셋 화면에서 표시만 하고 고르는 건 사용자가 한다.
    */
   function pickArchetype(value: ArchetypeValue) {
     setDraft((prev) => ({
       ...prev,
       archetype: value,
       ...defaultsForArchetype(value),
-      presetId: vibeForArchetype(value) as PresetId,
     }));
     next();
   }
@@ -167,43 +169,66 @@ function Field({
         </div>
       );
 
-    case 'preset':
+    case 'preset': {
+      // 타입에서 온 추천 분위기. 고르라고 강요하지 않고 표시만 한다 —
+      // 미리 선택해두면 성별 표현까지 대신 정해버리게 된다.
+      const recommended = draft.archetype ? vibeForArchetype(draft.archetype) : null;
+
       return (
-        <div className="grid grid-cols-2 gap-3">
-          {PRESET_CHARACTERS.map((p) => {
-            const on = draft.presetId === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => set('presetId', p.id)}
-                className={`overflow-hidden rounded-2xl border text-left transition ${
-                  on ? 'border-blush ring-2 ring-blush/30' : 'border-black/10 dark:border-white/15'
-                }`}
-              >
-                {/* 이미지가 아직 없어도 자리와 라벨은 보이게 둔다. */}
-                <span className="flex aspect-square w-full items-center justify-center bg-cream-deep dark:bg-night-soft">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={presetImagePath(p.id, 'neutral')}
-                    alt={p.label}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </span>
-                <span className="block px-3 py-2">
-                  <span className="block text-sm font-medium">{p.label}</span>
-                  <span className="block text-xs text-ink-soft dark:text-cream/60">
-                    {p.description}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
+        <div className="space-y-6">
+          {presetsByPresentation().map((group) => (
+            <div key={group.presentation}>
+              <p className="mb-2 text-xs text-ink-soft dark:text-cream/50">
+                {PRESENTATION_META[group.presentation].label}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {group.characters.map((p) => {
+                  const on = draft.presetId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => set('presetId', p.id)}
+                      className={`overflow-hidden rounded-2xl border text-left transition ${
+                        on
+                          ? 'border-blush ring-2 ring-blush/30'
+                          : 'border-black/10 dark:border-white/15'
+                      }`}
+                    >
+                      {/* 이미지가 아직 없어도 자리와 라벨은 보이게 둔다. */}
+                      <span className="flex aspect-square w-full items-center justify-center bg-cream-deep dark:bg-night-soft">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={presetImagePath(p.id, 'neutral')}
+                          alt={p.label}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </span>
+                      <span className="block px-3 py-2">
+                        <span className="block text-sm font-medium">
+                          {p.label}
+                          {recommended === p.vibe && (
+                            <span className="ml-1.5 text-[11px] font-normal text-blush-deep">
+                              추천
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-xs text-ink-soft dark:text-cream/60">
+                          {p.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       );
+    }
 
     case 'single': {
       const key = question.key as 'tone' | 'speechStyle';

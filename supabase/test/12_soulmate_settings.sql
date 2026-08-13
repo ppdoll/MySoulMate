@@ -18,7 +18,7 @@ select public.create_soulmate(
     "speechStyle":"casual","speechSamples":["왔어?","오늘 뭐 했어? 나는 계속 기다렸지."],
     "backstory":"동네 카페에서 자주 마주치던 사이","interests":["산책","음악"],
     "greeting":"안녕!","appearancePrompt":"a woman with short hair"}'::jsonb,
-  '{"archetype":"sunlight","presentation":"feminine","vibe":"bright","presetId":"bright"}'::jsonb,
+  '{"archetype":"sunlight","presentation":"feminine","vibe":"bright","presetId":"w_bright"}'::jsonb,
   null, null, '안녕!'
 );
 
@@ -93,7 +93,7 @@ begin
     '수정후', 'partner',
     '{"name":"수정후","speechStyle":"polite","oneLiner":"오셨네요",
       "speechSamples":["오셨어요?","오늘 뭐 하셨어요? 저는 계속 기다렸어요."]}'::jsonb,
-    '{"presetId":"calm","vibe":"calm","presentation":"feminine"}'::jsonb
+    '{"presetId":"w_calm","vibe":"calm","presentation":"feminine"}'::jsonb
   );
 
   select * into s from public.soulmates
@@ -113,7 +113,7 @@ begin
   if s.persona ->> 'speechStyle' <> 'polite' then
     raise exception 'FAIL: 말투가 %입니다', s.persona ->> 'speechStyle';
   end if;
-  if s.appearance ->> 'presetId' <> 'calm' or s.appearance ->> 'vibe' <> 'calm' then
+  if s.appearance ->> 'presetId' <> 'w_calm' or s.appearance ->> 'vibe' <> 'calm' then
     raise exception 'FAIL: 프리셋/분위기가 % / %입니다',
       s.appearance ->> 'presetId', s.appearance ->> 'vibe';
   end if;
