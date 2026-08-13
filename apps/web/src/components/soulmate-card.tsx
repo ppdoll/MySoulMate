@@ -11,6 +11,7 @@ import {
   type WalletState,
 } from '@mysoulmate/shared';
 import { ApiError, apiFetch } from '@/lib/api';
+import { SoulmateSettings } from './soulmate-settings';
 
 export function SoulmateCard({
   soulmate,
@@ -26,6 +27,7 @@ export function SoulmateCard({
   onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [changeRequest, setChangeRequest] = useState('');
   const [busy, setBusy] = useState(false);
@@ -130,16 +132,35 @@ export function SoulmateCard({
           {soulmate.name}와 대화하기
         </Link>
 
+        {editing && (
+          <SoulmateSettings
+            soulmate={soulmate}
+            onUpdated={onUpdated}
+            onClose={() => setEditing(false)}
+          />
+        )}
+
         {!open ? (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="mt-2.5 w-full rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
-          >
-            {isFirstAvatar
-              ? 'AI로 나만의 모습 만들기 · 무료'
-              : `모습 다시 그리기 · ${cost} 크레딧`}
-          </button>
+          <div className="mt-2.5 flex gap-2">
+            {/* 이름·관계·말투·모습만 바꾸는 길. 대화와 기억은 남고 크레딧도 안 든다. */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditing((v) => !v);
+                setError(null);
+              }}
+              className="flex-1 rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
+            >
+              {editing ? '고치기 닫기' : '고치기 · 무료'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="flex-1 rounded-full border border-black/10 py-2.5 text-sm dark:border-white/15"
+            >
+              {isFirstAvatar ? 'AI 모습 · 무료' : `다시 그리기 · ${cost}`}
+            </button>
+          </div>
         ) : (
           <div className="mt-5 rounded-xl border border-black/10 p-4 dark:border-white/15">
             <p className="text-sm">{isFirstAvatar ? '어떤 모습이면 좋을까요?' : '어떻게 바꿔볼까요?'}</p>
@@ -195,7 +216,7 @@ export function SoulmateCard({
               }}
               className="w-full py-1.5 text-xs text-ink-soft underline-offset-4 hover:underline dark:text-cream/50"
             >
-              처음부터 다시 만들기{isAdmin ? '' : ` · ${resetCost} 크레딧`}
+              성격까지 처음부터 다시 만들기{isAdmin ? '' : ` · ${resetCost} 크레딧`}
             </button>
           ) : (
             <div className="rounded-xl border border-blush/40 p-4">

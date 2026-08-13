@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { RELATIONSHIP_TONES, SPEECH_STYLES } from './persona';
+import { PRESET_IDS } from './presets';
 import type { Appearance, Persona, RelationshipTone } from './persona';
 import type { CreditPackCode, MissionCode } from './credits';
 
@@ -109,6 +111,26 @@ export const RegenerateAvatarSchema = z.object({
 });
 
 export type RegenerateAvatarRequest = z.infer<typeof RegenerateAvatarSchema>;
+
+/**
+ * 소울메이트 설정 수정.
+ *
+ * 여기 있는 것들만 대화 기록과 기억을 지키면서 바꿀 수 있다 — 전부 비용이 0이라서다.
+ * 얼굴을 새로 그리는 건 이미지 생성 비용이 들어 재생성(크레딧)으로 남는다.
+ *
+ * 성격이나 배경 설정은 들어 있지 않다. 그건 캐릭터의 정체성이라
+ * 바꾸려면 처음부터 다시 만드는 게 맞다.
+ */
+export const UpdateSoulmateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(20).optional(),
+    tone: z.enum(RELATIONSHIP_TONES).optional(),
+    speechStyle: z.enum(SPEECH_STYLES).optional(),
+    presetId: z.enum(PRESET_IDS).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: '바꿀 내용이 없어요.' });
+
+export type UpdateSoulmateRequest = z.infer<typeof UpdateSoulmateSchema>;
 
 export interface SoulmateResponse {
   id: string;

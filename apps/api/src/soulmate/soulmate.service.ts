@@ -10,6 +10,7 @@ import {
   type OnboardingAnswers,
   type Persona,
   type SoulmateResponse,
+  type UpdateSoulmateRequest,
 } from '@mysoulmate/shared';
 import { SupabaseService } from '../supabase/supabase.module';
 import { CreditsService } from '../credits/credits.service';
@@ -159,6 +160,72 @@ export class SoulmateService {
         refId: row.id,
       });
       throw err;
+    }
+
+    const updated = await this.get(userId);
+    if (!updated) throw ApiException.internal();
+    return updated;
+  }
+
+  /**
+   * 설정 수정 — 대화 기록과 기억을 지키면서 바꾼다.
+   *
+   * 바꿀 수 있는 건 비용이 0인 것들뿐이다: 이름, 관계 톤, 말투, 프리셋 모습.
+   * 그래서 크레딧을 받지 않는다. 성격이나 배경은 캐릭터의 정체성이라
+   * 바꾸려면 처음부터 다시 만드는 쪽(reset)이 맞다.
+   *
+   * 얼굴을 새로 그리는 것도 여기 없다 — 이미지 생성은 실제로 돈이 든다.
+   */
+  async updateSettings(
+    user: AuthUser,
+    patch: UpdateSoulmateRequest,
+  ): Promise<SoulmateResponse> {
+    const userId = user.id;
+    const row = await this.findRow(userId);
+    if (!row) throw ApiException.notFound('소울메이트가 아직 없어요.');
+
+    const persona = PersonaSchema.parse(row.persona);
+    const personaPatch: Record<string, unknown> = {};
+    const appearancePatch: Record<string, unknown> = {};
+
+    // persona.name 과 soulmates.name 은 쓰이는 곳이 다르다.
+    // 앞은 시스템 프롬프트, 뒤는 화면. 하나만 바꾸면 부르는 이름이 갈린다.
+    const name = patch.name ?? row.name;
+    if (patch.name) personaPatch.name = patch.name;
+
+    if (patch.speechStyle && patch.speechStyle !== persona.speechStyle) {
+      personaPatch.speechStyle = patch.speechStyle;
+
+      // 예시 문장을 함께 옮긴다. 안 하면 지시문과 예시가 싸워서 말투가 안 바뀐다.
+      // 실패하면 아무것도 저장하지 않는다 — 반만 적용된 상태가 제일 나쁘다.
+      const restyled = await this.runModel(() =>
+        this.personas.restyle(persona, patch.speechStyle!),
+      );
+      personaPatch.oneLiner = restyled.oneLiner;
+      personaPatch.speechSamples = restyled.speechSamples;
+    }
+
+    if (patch.presetId) {
+      const preset = getPreset(patch.presetId);
+      appearancePatch.presetId = patch.presetId;
+      // 프리셋 id 는 외형 분위기와 같은 값이다(presets.ts 참고).
+      // 나중에 AI로 모습을 만들 때 기준이 되므로 함께 옮긴다.
+      appearancePatch.vibe = patch.presetId;
+      appearancePatch.presentation = preset.presentation;
+    }
+
+    const { error } = await this.supabase.client.rpc('update_soulmate_settings', {
+      p_user: userId,
+      p_soulmate_id: row.id,
+      p_name: name,
+      p_tone: patch.tone ?? row.tone,
+      p_persona_patch: personaPatch,
+      p_appearance_patch: appearancePatch,
+    });
+
+    if (error) {
+      this.logger.error(`update_soulmate_settings 실패 [${error.code}] ${error.message}`);
+      throw ApiException.internal();
     }
 
     const updated = await this.get(userId);

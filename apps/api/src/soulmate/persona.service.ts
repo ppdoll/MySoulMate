@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { z } from 'zod';
 import {
   INTEREST_OPTIONS,
   PersonaSchema,
@@ -9,6 +10,7 @@ import {
   type Appearance,
   type OnboardingAnswers,
   type Persona,
+  type SpeechStyle,
 } from '@mysoulmate/shared';
 import { GeminiService } from '../ai/gemini.service';
 
@@ -37,7 +39,56 @@ export class PersonaService {
     // "내가 만든 소울메이트" 라는 전제부터 깨진다.
     return { ...persona, name: answers.callName };
   }
+
+  /**
+   * 말투를 바꿀 때 예시 문장을 새 말투로 다시 쓴다.
+   *
+   * 이 호출이 없으면 말투 변경이 사실상 먹지 않는다. 시스템 프롬프트에는
+   * `말투: 존댓말` 지시문과 speechSamples 가 함께 들어가는데, 예시가 전부 반말이면
+   * 모델은 지시문보다 예시를 따라간다. 캐릭터는 그대로 두고 어미만 옮긴다.
+   *
+   * 텍스트 모델은 무료 티어가 있어서 이 호출에는 돈이 들지 않는다.
+   */
+  async restyle(persona: Persona, speechStyle: SpeechStyle): Promise<RestyledSpeech> {
+    return this.gemini.generateJson({
+      system: RESTYLE_SYSTEM_PROMPT,
+      prompt: [
+        `# 바꿀 말투`,
+        `${SPEECH_STYLE_META[speechStyle].label} — ${SPEECH_STYLE_META[speechStyle].description}`,
+        ``,
+        `# 캐릭터`,
+        `- 이름: ${persona.name}`,
+        `- 성격: ${persona.traits.join(', ')}`,
+        ``,
+        `# 지금 문장들`,
+        `oneLiner: ${persona.oneLiner}`,
+        ...persona.speechSamples.map((s, i) => `speechSamples[${i}]: ${s}`),
+      ].join('\n'),
+      schema: RestyleSchema,
+      retries: 1,
+    });
+  }
 }
+
+/**
+ * 말투만 옮긴 결과. 캐릭터를 다시 만드는 게 아니라서 이 두 필드만 받는다.
+ * traits 나 backstory 까지 손대면 "이름만 바꿨는데 성격이 달라졌다" 가 된다.
+ */
+const RestyleSchema = z.object({
+  oneLiner: PersonaSchema.shape.oneLiner,
+  speechSamples: PersonaSchema.shape.speechSamples,
+});
+
+type RestyledSpeech = z.infer<typeof RestyleSchema>;
+
+const RESTYLE_SYSTEM_PROMPT = `당신은 캐릭터의 대사를 다른 말투로 옮기는 편집자입니다.
+
+- 내용과 성격은 그대로 둡니다. 어미와 호칭만 새 말투에 맞춥니다.
+- 문장 수와 길이 배분도 그대로 유지합니다. 짧은 문장은 짧게, 긴 문장은 길게 남깁니다.
+  이 예시가 실제 대화의 길이를 정하므로 전부 한 줄로 줄이면 대화가 짧아집니다.
+- 새로운 설정이나 사건을 넣지 않습니다. 이름을 바꾸지 않습니다.
+- 반말이면 "오늘 어땠어?", 존댓말이면 "오늘 어떠셨어요?" 처럼 자연스럽게 씁니다.
+  번역기처럼 어미만 기계적으로 갈아붙이지 않습니다.`;
 
 const SYSTEM_PROMPT = `당신은 1인용 AI 동반자 서비스의 캐릭터 설정을 만드는 작가입니다.
 사용자가 고른 조건을 읽고, 그 사람에게 맞춘 캐릭터 한 명을 설계해 JSON으로 출력합니다.

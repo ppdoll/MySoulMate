@@ -153,5 +153,8 @@ psql_run -f "$ROOT/supabase/test/10_missions.sql"
 echo "==> 검증 (친구 초대 / 어뷰징 방어)"
 psql_run -f "$ROOT/supabase/test/11_referrals.sql"
 
+echo "==> 검증 (비파괴적 설정 수정)"
+psql_run -f "$ROOT/supabase/test/12_soulmate_settings.sql"
+
 echo
 echo "완료."
