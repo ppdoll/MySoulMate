@@ -61,6 +61,39 @@ begin
 end;
 $$;
 
+\echo '--- 검증: 미리보기는 기록을 남기지 않는다 ---'
+do $$
+declare
+  v_preview int;
+  v_dispatched int;
+begin
+  -- 위에서 실제 발송이 한 번 일어나 기록이 남았다. 되돌려서 다시 대상이 되게 한다.
+  delete from public.push_dispatches;
+
+  -- 미리보기를 세 번 불러도 매번 같은 대상이 나와야 한다.
+  -- 여기서 기록이 남으면 테스트하려고 눌러본 것 때문에 그날 실제 알림이 사라진다.
+  for i in 1..3 loop
+    select count(*) into v_preview from public.claim_push_targets(50, 20, 3, true);
+    if v_preview <> 1 then
+      raise exception 'FAIL: %번째 미리보기에서 %명이 나왔습니다', i, v_preview;
+    end if;
+  end loop;
+
+  select count(*) into v_dispatched from public.push_dispatches;
+  if v_dispatched <> 0 then
+    raise exception 'FAIL: 미리보기가 발송 기록 %건을 남겼습니다', v_dispatched;
+  end if;
+
+  -- 미리보기 뒤에도 실제 발송은 그대로 가능해야 한다.
+  select count(*) into v_preview from public.claim_push_targets(50, 20, 3, false);
+  if v_preview <> 1 then
+    raise exception 'FAIL: 미리보기 후 실제 발송에서 %명이 나왔습니다', v_preview;
+  end if;
+
+  raise notice 'PASS: 미리보기는 몇 번이든 눌러도 되고, 그 뒤 실제 발송이 살아 있습니다';
+end;
+$$;
+
 \echo '--- 검증: 같은 날 다시 부르면 아무도 안 나온다 ---'
 do $$
 declare

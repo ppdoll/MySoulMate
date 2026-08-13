@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { PushStatus } from '@mysoulmate/shared';
+import type { PushStatus, PushTestResult } from '@mysoulmate/shared';
 import { ApiError, apiFetch } from '@/lib/api';
 
 /**
@@ -25,6 +25,7 @@ export function NotificationCard() {
   const [error, setError] = useState<string | null>(null);
   /** 이 기기가 구독돼 있는지. 계정 전체(deviceCount)와는 다른 값이다. */
   const [thisDevice, setThisDevice] = useState(false);
+  const [tested, setTested] = useState<PushTestResult | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -88,6 +89,28 @@ export function NotificationCard() {
     }
   }
 
+  /**
+   * 본인에게 한 통 보내본다.
+   *
+   * 휴대폰에서 확인하는 기능이라 버튼이 필요하다 — curl 을 칠 수 없다.
+   * 서버가 "오늘 보냄" 을 기록하지 않으므로 몇 번이든 눌러도 되고,
+   * 눌러본 것 때문에 그날의 실제 알림을 잃지도 않는다.
+   */
+  async function sendTest() {
+    setBusy(true);
+    setError(null);
+    setTested(null);
+    try {
+      const result = await apiFetch<PushTestResult>('/notifications/test', { method: 'POST' });
+      setTested(result);
+      if (result.removed > 0) await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '보내지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disable() {
     setBusy(true);
     setError(null);
@@ -130,14 +153,25 @@ export function NotificationCard() {
         {permission === 'unsupported' ? (
           <span className="shrink-0 text-xs text-ink-soft/70 dark:text-cream/40">지원 안 됨</span>
         ) : thisDevice ? (
-          <button
-            type="button"
-            onClick={() => void disable()}
-            disabled={busy}
-            className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm disabled:opacity-40 dark:border-white/15"
-          >
-            {busy ? '끄는 중…' : '끄기'}
-          </button>
+          <div className="flex shrink-0 gap-2">
+            {/* 켜자마자 진짜 오는지 확인할 수 있어야 한다. 안 그러면 20시간을 기다려야 한다. */}
+            <button
+              type="button"
+              onClick={() => void sendTest()}
+              disabled={busy}
+              className="rounded-full bg-blush px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {busy ? '…' : '보내보기'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void disable()}
+              disabled={busy}
+              className="rounded-full border border-black/10 px-4 py-2 text-sm disabled:opacity-40 dark:border-white/15"
+            >
+              끄기
+            </button>
+          </div>
         ) : (
           <button
             type="button"
@@ -161,6 +195,22 @@ export function NotificationCard() {
           허용으로 바꾼 뒤 다시 눌러주세요.
         </p>
       )}
+      {tested && (
+        /*
+          문구를 함께 보여준다. 알림이 안 왔을 때 "문구를 못 만든 것" 과
+          "기기에 도달하지 못한 것" 을 구분해야 원인을 찾을 수 있다.
+        */
+        <div className="mt-3 rounded-xl bg-cream-deep p-3 dark:bg-night-soft">
+          <p className="text-xs text-ink-soft dark:text-cream/50">
+            {tested.delivered
+              ? '보냈어요. 잠금화면을 확인해 보세요.'
+              : '보낼 기기를 찾지 못했어요. 알림을 껐다 다시 켜보세요.'}
+            {tested.removed > 0 && ` (더 이상 쓰지 않는 기기 ${tested.removed}대를 정리했어요)`}
+          </p>
+          <p className="mt-1.5 text-[15px] leading-relaxed">{tested.body}</p>
+        </div>
+      )}
+
       {error && <p className="mt-2 text-sm text-blush-deep">{error}</p>}
     </section>
   );

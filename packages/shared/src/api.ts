@@ -261,6 +261,23 @@ export interface PushDispatchResult {
   removed: number;
   /** 상한에 걸려 다음으로 밀린 인원이 있는지. */
   limited: boolean;
+  /** 미리보기였는지. true 면 아무것도 보내지 않았고 "오늘 보냄" 도 기록되지 않았다. */
+  dryRun: boolean;
+}
+
+/** 본인에게 한 통 보내본 결과. */
+export interface PushTestResult {
+  /** 하나 이상의 기기에 도달했는지. */
+  delivered: boolean;
+  /** 죽은 주소로 판정되어 지운 기기 수. */
+  removed: number;
+  /**
+   * 만들어진 문구.
+   *
+   * 알림이 안 왔을 때 "문구를 못 만든 것" 과 "기기에 도달하지 못한 것" 을
+   * 구분하려면 이 값이 필요하다.
+   */
+  body: string;
 }
 
 // ---------------------------------------------------------------- billing

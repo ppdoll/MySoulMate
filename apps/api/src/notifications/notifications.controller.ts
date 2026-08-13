@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   PushSubscribeSchema,
@@ -14,6 +15,7 @@ import {
   type PushDispatchResult,
   type PushStatus,
   type PushSubscribeRequest,
+  type PushTestResult,
   type PushUnsubscribeRequest,
 } from '@mysoulmate/shared';
 import { PushService } from './push.service';
@@ -57,6 +59,18 @@ export class NotificationsController {
   }
 
   /**
+   * 본인에게 한 통 보내본다.
+   *
+   * 실제 발송 경로를 그대로 태우되 "오늘 보냄" 은 기록하지 않는다 —
+   * 확인하느라 그날의 실제 알림을 잃으면 안 된다.
+   * 자기 계정의 기기에만 간다.
+   */
+  @Post('test')
+  sendTest(@CurrentUser() user: AuthUser): Promise<PushTestResult> {
+    return this.notifications.sendTest(user.id);
+  }
+
+  /**
    * 발송. Vercel Cron 이 하루 한 번 호출한다.
    *
    * 로그인 토큰이 없으므로(cron 은 사용자가 아니다) 가드를 열고 시크릿으로 막는다.
@@ -67,7 +81,15 @@ export class NotificationsController {
    */
   @Public()
   @Get('dispatch')
-  dispatch(@Headers('authorization') authorization?: string): Promise<PushDispatchResult> {
+  dispatch(
+    @Headers('authorization') authorization?: string,
+    /**
+     * `?dry=1` 이면 대상만 세고 아무것도 보내지 않는다.
+     * "오늘 보냄" 도 기록되지 않으므로 몇 번이든 눌러볼 수 있고,
+     * 확인한 뒤에 실제 발송을 그대로 할 수 있다.
+     */
+    @Query('dry') dry?: string,
+  ): Promise<PushDispatchResult> {
     const secret = this.config.env.CRON_SECRET;
     if (!secret) {
       throw ApiException.forbidden('발송 엔드포인트가 설정되지 않았습니다.');
@@ -76,6 +98,6 @@ export class NotificationsController {
       // 무엇이 틀렸는지 알려주지 않는다.
       throw ApiException.forbidden();
     }
-    return this.notifications.dispatch();
+    return this.notifications.dispatch({ dryRun: dry === '1' || dry === 'true' });
   }
 }

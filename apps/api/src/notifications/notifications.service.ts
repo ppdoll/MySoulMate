@@ -8,6 +8,7 @@ import {
 import { AppConfig } from '../config/app-config';
 import { SupabaseService } from '../supabase/supabase.module';
 import { GeminiService } from '../ai/gemini.service';
+import { ApiException } from '../common/api-exception';
 import { PushService } from './push.service';
 import {
   NOTIFICATION_SYSTEM_PROMPT,
@@ -50,10 +51,12 @@ export class NotificationsService {
    * 대상 선정과 "오늘 보냄" 기록이 한 SQL 문에서 함께 일어난다(claim_push_targets).
    * cron 은 재시도될 수 있어서, 나눠 두면 같은 사람에게 두 번 간다.
    */
-  async dispatch(): Promise<PushDispatchResult> {
+  async dispatch(options: { dryRun?: boolean } = {}): Promise<PushDispatchResult> {
+    const dryRun = options.dryRun === true;
+
     if (!this.push.isEnabled) {
       this.logger.warn('VAPID 키가 없어 발송을 건너뜁니다.');
-      return { targeted: 0, sent: 0, removed: 0, limited: false };
+      return { targeted: 0, sent: 0, removed: 0, limited: false, dryRun };
     }
 
     const limit = this.config.pushBatchLimit;
@@ -61,16 +64,30 @@ export class NotificationsService {
       p_limit: limit,
       p_idle_hours: this.config.pushIdleHours,
       p_max_failures: this.push.maxFailures,
+      p_dry_run: dryRun,
     });
 
     if (error) {
       this.logger.error(`발송 대상 조회 실패 [${error.code}] ${error.message}`);
-      return { targeted: 0, sent: 0, removed: 0, limited: false };
+      return { targeted: 0, sent: 0, removed: 0, limited: false, dryRun };
     }
 
     const targets = (data ?? []) as TargetRow[];
     let sent = 0;
     let removed = 0;
+
+    // 미리보기는 대상만 세고 보내지 않는다. "오늘 보냄" 도 기록되지 않았으므로
+    // 실제 발송은 여전히 이 뒤에 할 수 있다.
+    if (dryRun) {
+      this.logger.log(`미리보기: 대상 ${targets.length}명 (아무것도 보내지 않았습니다)`);
+      return {
+        targeted: targets.length,
+        sent: 0,
+        removed: 0,
+        limited: targets.length === limit,
+        dryRun: true,
+      };
+    }
 
     for (const target of targets) {
       const result = await this.sendOne(target);
@@ -86,7 +103,68 @@ export class NotificationsService {
         (limited ? ` (상한 ${limit}에 걸려 남은 대상은 다음 발송으로 밀립니다)` : ''),
     );
 
-    return { targeted: targets.length, sent, removed, limited };
+    return { targeted: targets.length, sent, removed, limited, dryRun: false };
+  }
+
+  /**
+   * 본인에게 한 통 보내본다.
+   *
+   * 실제 발송 경로를 그대로 태우되(문구 생성 포함) "오늘 보냄" 은 기록하지 않는다.
+   * cron 을 기다리거나 20시간을 흘려보내지 않고 확인할 수 있어야 하고,
+   * 확인하느라 그날의 실제 알림을 잃어서도 안 된다.
+   *
+   * 문구를 함께 돌려준다 — 알림이 안 왔을 때 "문구를 못 만든 것" 과
+   * "기기에 도달하지 못한 것" 을 구분해야 원인을 찾을 수 있다.
+   */
+  async sendTest(userId: string): Promise<{ delivered: boolean; removed: number; body: string }> {
+    if (!this.push.isEnabled) {
+      throw ApiException.validationFailed('서버에 알림 키가 설정되지 않았어요.');
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('soulmates')
+      .select('id, name, tone, persona, profiles!inner(display_name)')
+      .eq('user_id', userId)
+      .maybeSingle<{
+        id: string;
+        name: string;
+        tone: RelationshipTone;
+        persona: unknown;
+        profiles: { display_name: string | null } | null;
+      }>();
+
+    if (error) {
+      this.logger.error(`테스트 발송 대상 조회 실패 [${error.code}] ${error.message}`);
+      throw ApiException.internal();
+    }
+    if (!data) throw ApiException.notFound('소울메이트가 아직 없어요.');
+
+    const persona = PersonaSchema.safeParse(data.persona);
+    if (!persona.success) throw ApiException.internal();
+
+    const target: TargetRow = {
+      user_id: userId,
+      soulmate_id: data.id,
+      soulmate_name: data.name,
+      tone: data.tone,
+      persona: data.persona,
+      display_name: data.profiles?.display_name ?? null,
+      // 테스트에서는 공백을 모른다. 실제 발송과 같은 문구 흐름을 태우기 위해
+      // "오래 안 옴" 쪽으로 둔다.
+      last_message_at: null,
+    };
+
+    const body = await this.composeBody(target, persona.data);
+    const result = await this.push.sendTo(userId, {
+      title: data.name,
+      body,
+      url: '/chat',
+    });
+
+    this.logger.log(
+      `테스트 발송 (user=${userId}) 도달=${result.delivered} 정리=${result.removed}`,
+    );
+    return { ...result, body };
   }
 
   private async sendOne(target: TargetRow): Promise<{ delivered: boolean; removed: number }> {
