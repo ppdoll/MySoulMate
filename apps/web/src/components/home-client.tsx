@@ -12,6 +12,7 @@ import { MissionsCard } from './missions-card';
 import { ReferralCard } from './referral-card';
 import { AccountFooter } from './account-footer';
 import { InstallPrompt } from './install-prompt';
+import { NotificationCard } from './notification-card';
 
 export function HomeClient() {
   const router = useRouter();
@@ -164,6 +165,8 @@ export function HomeClient() {
           setMe((prev) => (prev ? { ...prev, profile: { ...prev.profile, selfIntro } } : prev))
         }
       />
+
+      <NotificationCard />
 
       <InstallPrompt />
 

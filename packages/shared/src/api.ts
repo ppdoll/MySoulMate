@@ -215,6 +215,54 @@ export interface EnterReferralResponse {
   inviterName: string | null;
 }
 
+// ---------------------------------------------------------------- push
+
+export interface PushStatus {
+  /** 서버에 VAPID 키가 설정되어 있는지. 없으면 화면에서 알림 항목을 숨긴다. */
+  available: boolean;
+  /**
+   * 브라우저 구독에 필요한 공개키. 비밀이 아니다.
+   * available 이 false 면 빈 문자열.
+   */
+  publicKey: string;
+  /** 이 계정에 살아 있는 구독이 몇 개인지(기기 수). */
+  deviceCount: number;
+}
+
+/**
+ * 브라우저가 내주는 구독 정보.
+ *
+ * `PushSubscription.toJSON()` 의 모양을 그대로 받는다.
+ * 앞에서 형태를 바꾸면 브라우저가 준 값과 우리가 저장한 값이 어긋날 여지가 생긴다.
+ */
+export const PushSubscribeSchema = z.object({
+  endpoint: z.url().max(1000),
+  keys: z.object({
+    p256dh: z.string().min(1).max(200),
+    auth: z.string().min(1).max(200),
+  }),
+});
+
+export type PushSubscribeRequest = z.infer<typeof PushSubscribeSchema>;
+
+export const PushUnsubscribeSchema = z.object({
+  endpoint: z.url().max(1000),
+});
+
+export type PushUnsubscribeRequest = z.infer<typeof PushUnsubscribeSchema>;
+
+/** 발송 결과. cron 로그에서 확인한다. */
+export interface PushDispatchResult {
+  /** 대상으로 뽑힌 인원. */
+  targeted: number;
+  /** 실제로 하나 이상의 기기에 보낸 인원. */
+  sent: number;
+  /** 살아 있는 구독이 없어 지워진 기기 수. */
+  removed: number;
+  /** 상한에 걸려 다음으로 밀린 인원이 있는지. */
+  limited: boolean;
+}
+
 // ---------------------------------------------------------------- billing
 
 export interface CheckoutResponse {

@@ -36,6 +36,65 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+/*
+  푸시 알림.
+
+  서버가 보낸 JSON({ title, body, url })을 잠금화면 알림으로 띄운다.
+  userVisibleOnly 로 구독했으므로 푸시를 받고 알림을 띄우지 않으면
+  브라우저가 대신 "백그라운드에서 업데이트됨" 같은 문구를 띄운다.
+  그래서 어떤 경우에도 showNotification 을 부른다.
+*/
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // 형식이 깨진 페이로드. 아래 기본값으로 뜬다.
+  }
+
+  const title = payload.title || 'MySoulMate';
+  const body = payload.body || '새 소식이 있어요.';
+  const url = payload.url || '/chat';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      // 같은 tag 를 쓰면 이전 알림을 덮어쓴다. 며칠 안 열었을 때
+      // 잠금화면에 같은 종류가 여러 개 쌓이는 걸 막는다.
+      tag: 'soulmate-nudge',
+      renotify: true,
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/chat';
+
+  event.waitUntil(
+    (async () => {
+      // 이미 열려 있는 창이 있으면 새로 열지 않고 그 창을 쓴다.
+      // 안 그러면 알림을 누를 때마다 탭이 하나씩 늘어난다.
+      const clientList = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientList) {
+        if ('focus' in client) {
+          await client.focus();
+          if ('navigate' in client) await client.navigate(url);
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   // 화면 이동만 가로챈다. API 호출이나 이미지는 그대로 흘려보낸다 —
   // 여기서 손대면 SSE 스트리밍(대화)까지 워커를 거치게 된다.

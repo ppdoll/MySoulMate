@@ -7,6 +7,7 @@
     "build": "pnpm --filter @mysoulmate/shared build && nest build",
     "start": "node dist/main.js",
     "check:gemini": "node scripts/check-gemini.mjs",
+    "vapid:keys": "node scripts/vapid-keys.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sharp": "0.35.3",
+    "web-push": "3.6.7",
     "ws": "8.21.2",
     "zod": "4.4.3"
   },
@@ -29,6 +31,7 @@
     "@nestjs/schematics": "11.1.0",
     "@types/express": "5.0.6",
     "@types/node": "22.20.1",
+    "@types/web-push": "3.6.4",
     "@types/ws": "8.18.1",
     "typescript": "5.9.3"
   }

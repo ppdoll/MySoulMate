@@ -9,6 +9,7 @@ import { ChatModule } from './chat/chat.module';
 import { MemoriesModule } from './memories/memories.module';
 import { MissionsModule } from './missions/missions.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ReferralsModule } from './referrals/referrals.module';
     MemoriesModule,
     MissionsModule,
     ReferralsModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
 })

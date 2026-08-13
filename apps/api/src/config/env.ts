@@ -110,6 +110,41 @@ const EnvSchema = z.object({
    */
   FREE_DAILY_CHAT_TURNS: optionalInt(0),
 
+  /**
+   * 웹 푸시 VAPID 키쌍.
+   *
+   * 셋 다 비워두면 푸시 기능만 꺼진다 — 없다고 부팅을 막지는 않는다.
+   * 알림은 부가 기능이고, 키를 아직 안 만든 상태에서 서비스 전체가 안 뜨면 곤란하다.
+   * (키 생성: pnpm --filter @mysoulmate/api vapid:keys)
+   *
+   * PUBLIC 키는 브라우저에도 나가는 값이라 비밀이 아니다.
+   * PRIVATE 키가 새면 우리 이름으로 알림을 보낼 수 있게 되므로 절대 프론트로 내보내지 않는다.
+   */
+  VAPID_PUBLIC_KEY: optionalSecret,
+  VAPID_PRIVATE_KEY: optionalSecret,
+  /** 푸시 서비스가 문제가 생겼을 때 연락할 곳. `mailto:` 로 시작해야 한다. */
+  VAPID_SUBJECT: optionalSecret,
+
+  /**
+   * Vercel Cron 이 보내는 시크릿.
+   *
+   * 발송 엔드포인트는 로그인 토큰 없이 열려 있어야 해서(cron 은 사용자가 아니다)
+   * 이 값으로 막는다. 비워두면 그 엔드포인트가 아예 동작하지 않는다 —
+   * 실수로 시크릿 없이 배포했을 때 아무나 알림을 쏘게 되는 쪽이 훨씬 나쁘다.
+   */
+  CRON_SECRET: optionalSecret,
+
+  /**
+   * 한 번의 발송에서 보낼 최대 인원.
+   *
+   * 알림 문구를 모델로 만들기 때문에 인원 수만큼 호출이 나간다.
+   * 무료 티어는 분당 10회 / 하루 1500회가 서비스 전체 상한이라 상한이 없으면
+   * 알림 한 번에 그날 대화용 쿼터까지 태울 수 있다.
+   */
+  PUSH_BATCH_LIMIT: optionalInt(1),
+  /** 이 시간 동안 대화가 없었던 사람에게만 보낸다. 대화 중인 사람을 찌르지 않기 위한 값. */
+  PUSH_IDLE_HOURS: optionalInt(0),
+
   /** Vercel이 자동 주입. 어떤 커밋이 떠 있는지 확인용. */
   VERCEL_GIT_COMMIT_SHA: optionalSecret,
 });

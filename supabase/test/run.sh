@@ -159,5 +159,8 @@ psql_run -f "$ROOT/supabase/test/12_soulmate_settings.sql"
 echo "==> 검증 (프리셋 ID 개명)"
 psql_run -f "$ROOT/supabase/test/13_preset_rename.sql"
 
+echo "==> 검증 (푸시 알림 대상 선정)"
+psql_run -f "$ROOT/supabase/test/14_push.sql"
+
 echo
 echo "완료."

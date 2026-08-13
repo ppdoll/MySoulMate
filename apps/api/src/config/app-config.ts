@@ -64,6 +64,32 @@ export class AppConfig {
     return this.env.FREE_DAILY_CHAT_TURNS ?? FREE_DAILY_CHAT_TURNS;
   }
 
+  /**
+   * 푸시 알림 설정. 세 값이 다 있어야 보낼 수 있다.
+   *
+   * 하나라도 없으면 null 을 돌려주고 기능만 꺼진다 — 부팅은 막지 않는다.
+   * 알림은 부가 기능이라, 키를 아직 안 만든 상태에서 서비스 전체가 안 뜨면 곤란하다.
+   */
+  get vapid(): { publicKey: string; privateKey: string; subject: string } | null {
+    const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = this.env;
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) return null;
+    return {
+      publicKey: VAPID_PUBLIC_KEY,
+      privateKey: VAPID_PRIVATE_KEY,
+      subject: VAPID_SUBJECT,
+    };
+  }
+
+  /** 한 번의 발송에서 보낼 최대 인원. 문구를 모델로 만들어서 인원=호출 수다. */
+  get pushBatchLimit(): number {
+    return this.env.PUSH_BATCH_LIMIT ?? 50;
+  }
+
+  /** 이 시간 동안 대화가 없었던 사람에게만 보낸다. */
+  get pushIdleHours(): number {
+    return this.env.PUSH_IDLE_HOURS ?? 20;
+  }
+
   isAdmin(email: string | null): boolean {
     if (!email) return false;
     return this.adminEmails.includes(email.toLowerCase());
